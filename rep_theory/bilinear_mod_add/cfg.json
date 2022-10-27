@@ -9,5 +9,5 @@
     },
     "lr" : 1e-3,
     "weight_decay" : 0.5,
-    "num_epochs" : 50000
+    "num_epochs" : 200000
 }
