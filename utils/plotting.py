@@ -113,3 +113,42 @@ def animate_lines(lines_list, snapshot_index = None, snapshot='snapshot', hover=
             rows.append([lines_list[i][j], snapshot_index[i], j])
     df = pd.DataFrame(rows, columns=[yaxis, snapshot, xaxis])
     px.line(df, x=xaxis, y=yaxis, animation_frame=snapshot, range_y=[lines_list.min(), lines_list.max()], hover_name=hover,**kwargs).show()
+
+def fft2d_old(mat, fourier_basis):
+    # Converts a pxpx... tensor into the 2D Fourier basis.
+    fourier_mat = torch.einsum('xyz,fx,Fy->fFz', mat, fourier_basis, fourier_basis)
+    return fourier_mat
+
+def fft2d(mat, fourier_basis):
+    # Converts a (p, p, ...) tensor into the 2D Fourier basis, relevant for the cyclic group.
+    shape = mat.shape
+
+    # if cyclic group
+    if shape[0] == fourier_basis.shape[0]:
+        fourier_mat = torch.einsum('xyz,fx,Fy->fFz', mat, fourier_basis, fourier_basis)
+        return fourier_mat
+
+    # if dihedral group
+    if shape[0] // 2 == fourier_basis.shape[0]:
+        print("test")
+        p = shape[0] // 2
+        mats =[
+            mat[:p, :p],
+            mat[:p, p:],
+            mat[p:, :p],
+            mat[p:, p:]
+        ]
+        fourier_mats=[]
+
+        for m in mats:
+            fourier_mats.append(torch.einsum('xyz,fx,Fy->fFz', m, fourier_basis, fourier_basis))
+
+        fourier_mat = torch.zeros_like(fourier_mats[0])
+
+        for m in fourier_mats:
+            fourier_mat += m
+        
+        return fourier_mat
+        
+
+        
