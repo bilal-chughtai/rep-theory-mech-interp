@@ -22,12 +22,12 @@ def to_numpy(tensor, flat=False):
     else:
         return tensor.detach().cpu().numpy()
 
-def imshow(tensor, xaxis=None, yaxis=None, animation_name='Snapshot', **kwargs):
+def imshow(tensor, input1=None, input2=None, animation_name='Snapshot', **kwargs):
     # if tensor.shape[0]==p*p:
     #     tensor = unflatten_first(tensor)
     tensor = torch.squeeze(tensor)
     px.imshow(to_numpy(tensor, flat=False), 
-              labels={'x':xaxis, 'y':yaxis, 'animation_name':animation_name}, 
+              labels={'x':input2, 'y':input1, 'animation_name':animation_name}, 
               **kwargs).show()
 
 # Set default colour scheme
@@ -46,14 +46,14 @@ def imshow_fourier(tensor, fourier_basis_names, title='', animation_name='snapsh
     fig=px.imshow(to_numpy(tensor),
             x=fourier_basis_names, 
             y=fourier_basis_names, 
-            labels={'x':'x Component', 
-                    'y':'y Component', 
+            labels={'y':'a component', # this is confusing. The y axis of the graph contains input 1
+                    'x':'b component', # The x axis of the graph contains input 2 
                     'animation_frame':animation_name},
             title=title,
             color_continuous_midpoint=0., 
             color_continuous_scale='RdBu', 
             **kwargs)
-    fig.update(data=[{'hovertemplate':"%{x}x * %{y}y<br>Value:%{z:.4f}"}])
+    fig.update(data=[{'hovertemplate':"%{y}a * %{x}b<br>Value:%{z:.4f}"}])
     if facet_labels:
         for i, label in enumerate(facet_labels):
             fig.layout.annotations[i]['text'] = label
@@ -114,41 +114,25 @@ def animate_lines(lines_list, snapshot_index = None, snapshot='snapshot', hover=
     df = pd.DataFrame(rows, columns=[yaxis, snapshot, xaxis])
     px.line(df, x=xaxis, y=yaxis, animation_frame=snapshot, range_y=[lines_list.min(), lines_list.max()], hover_name=hover,**kwargs).show()
 
-def fft2d_old(mat, fourier_basis):
-    # Converts a pxpx... tensor into the 2D Fourier basis.
-    fourier_mat = torch.einsum('xyz,fx,Fy->fFz', mat, fourier_basis, fourier_basis)
-    return fourier_mat
 
-def fft2d(mat, fourier_basis):
+def fft2d(mat, fourier_basis, inverse=False, stack=False):
     # Converts a (p, p, ...) tensor into the 2D Fourier basis, relevant for the cyclic group.
     shape = mat.shape
 
     # if cyclic group
     if shape[0] == fourier_basis.shape[0]:
-        fourier_mat = torch.einsum('xyz,fx,Fy->fFz', mat, fourier_basis, fourier_basis)
-        return fourier_mat
+        if not inverse:
+            fourier_mat = torch.einsum('xyz,fx,Fy->fFz', mat, fourier_basis, fourier_basis)
+        else:
+            fourier_mat = torch.einsum('xyz,fx,Fy->fFz', mat.unsqueeze(-1), fourier_basis.T, fourier_basis.T)
+        return fourier_mat.squeeze()
 
-    # if dihedral group
-    if shape[0] // 2 == fourier_basis.shape[0]:
-        print("test")
-        p = shape[0] // 2
-        mats =[
-            mat[:p, :p],
-            mat[:p, p:],
-            mat[p:, :p],
-            mat[p:, p:]
-        ]
+    # if dihedral group - this is pretty wrong
+    if stack:
         fourier_mats=[]
-
-        for m in mats:
+        for m in mat:
             fourier_mats.append(torch.einsum('xyz,fx,Fy->fFz', m, fourier_basis, fourier_basis))
-
-        fourier_mat = torch.zeros_like(fourier_mats[0])
-
-        for m in fourier_mats:
-            fourier_mat += m
-        
-        return fourier_mat
+        return torch.stack(fourier_mats).squeeze()
         
 
         

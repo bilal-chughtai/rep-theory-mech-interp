@@ -83,6 +83,82 @@ class OneLayerMLP(HookedRootModule):
         out = self.out(hidden @ self.W_U) # (batch, n)
         return out
 
+class BetterOneLayerMLP(HookedRootModule):
+    def __init__(self, layers, n, seed=0):
+        # embed_dim: dimension of the embedding
+        # hidden : hidden dimension size
+        # n : group order
+        super().__init__()
+        torch.manual_seed(seed)
+
+        embed_dim = layers['embed_dim']
+
+        # xavier initialise parameters
+        self.W_x = nn.Parameter(torch.randn(n, embed_dim)/np.sqrt(embed_dim))
+        self.W_y = nn.Parameter(torch.randn(n, embed_dim)/np.sqrt(embed_dim))
+        self.relu = nn.ReLU()
+        self.W_U = nn.Parameter(torch.randn(embed_dim, n)/np.sqrt(embed_dim))
+
+        # hookpoints
+        self.x_embed = HookPoint()
+        self.y_embed = HookPoint()
+        self.embed_stack = HookPoint()
+        self.hidden = HookPoint()
+
+        # We need to call the setup function of HookedRootModule to build an 
+        # internal dictionary of modules and hooks, and to give each hook a name
+        super().setup()
+
+    def forward(self, data):
+        x = data[:, 0] # (batch)
+        x_embed = self.x_embed(self.W_x[x]) # (batch, embed_dim)
+        y = data[:, 1] # (batch)
+        y_embed = self.y_embed(self.W_y[y]) # (batch, embed_dim)
+        embed_stack = x_embed + y_embed # (batch, embed_dim)
+        hidden = self.hidden(self.relu(embed_stack)) # (batch, embed_dim)
+        logits = hidden @ self.W_U # (batch, n)
+        return logits
+
+class BetterTwoLayerMLP(HookedRootModule):
+    def __init__(self, layers, n, seed=0):
+        # embed_dim: dimension of the embedding
+        # hidden : hidden dimension size
+        # n : group order
+        super().__init__()
+        torch.manual_seed(seed)
+
+        embed_dim = layers['embed_dim']
+        hidden_dim = layers['hidden_dim']
+
+        # xavier initialise parameters
+        self.W_x = nn.Parameter(torch.randn(n, embed_dim)/np.sqrt(embed_dim))
+        self.W_y = nn.Parameter(torch.randn(n, embed_dim)/np.sqrt(embed_dim))
+        self.relu = nn.ReLU()
+        self.W = nn.Parameter(torch.randn(embed_dim, hidden_dim)/np.sqrt(embed_dim))
+        self.relu2 = nn.ReLU()
+        self.W_U = nn.Parameter(torch.randn(hidden_dim, n)/np.sqrt(hidden_dim))
+
+        # hookpoints
+        self.x_embed = HookPoint()
+        self.y_embed = HookPoint()
+        self.embed_stack = HookPoint()
+        self.hidden = HookPoint()
+
+        # We need to call the setup function of HookedRootModule to build an 
+        # internal dictionary of modules and hooks, and to give each hook a name
+        super().setup()
+
+    def forward(self, data):
+        x = data[:, 0] # (batch)
+        x_embed = self.x_embed(self.W_x[x]) # (batch, embed_dim)
+        y = data[:, 1] # (batch)
+        y_embed = self.y_embed(self.W_y[y]) # (batch, embed_dim)
+        embed_stack = x_embed + y_embed # (batch, embed_dim)
+        hidden1 = self.hidden(self.relu(embed_stack)) # (batch, embed_dim)
+        hidden2 = self.relu2(hidden1 @ self.W) # (batch, hidden_dim)
+        logits = hidden2 @ self.W_U # (batch, n)
+        return logits
+
 
 # Generate Data
 
