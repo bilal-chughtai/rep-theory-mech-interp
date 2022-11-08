@@ -116,7 +116,6 @@ class SymmetricGroup(Group):
         self.G = sympySG(index)
         self.order = math.factorial(index)
         super().__init__(index = index, order = self.order, fourier_order = None)
-        
 
     def idx_to_perm(self, x):
         return self.G._elements[x]
@@ -126,3 +125,23 @@ class SymmetricGroup(Group):
 
     def compose(self, x, y):
         return self.perm_to_idx(self.idx_to_perm(x) * self.idx_to_perm(y))
+
+    def perm_order(self, x):
+        return self.idx_to_perm(x).order()
+
+    def signature(self, x):
+        return self.idx_to_perm(x).signature()
+        
+    def compute_natural_rep(self):
+        idx = list(np.linspace(0, self.index-1, self.index))
+        self.natural_reps = torch.zeros(self.order, self.index, self.index).cuda()
+        for x in range(self.order):
+            self.natural_reps[x, idx, self.idx_to_perm(x)(idx)] = 1
+
+    def natural_rep(self, x):
+        return self.natural_reps[x]
+
+    def compute_standard_rep(self):
+        
+    def standard_rep(self, x):
+        return self.standard_reps[x]
