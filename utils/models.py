@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from utils.hook_points import HookPoint, HookedRootModule
-from utils.groups import CyclicGroup, DihedralGroup
+from utils.groups import *
 import numpy as np
 import json
 
@@ -194,4 +194,5 @@ def load_cfg(task_dir):
     num_epochs = cfg['num_epochs']
     group_type = eval(cfg['group'])
     architecture_type = eval(cfg['model'])
-    return seed, frac_train, layers, lr, group_param, weight_decay, num_epochs, group_type, architecture_type
+    metrics = cfg['metrics']
+    return seed, frac_train, layers, lr, group_param, weight_decay, num_epochs, group_type, architecture_type, metrics

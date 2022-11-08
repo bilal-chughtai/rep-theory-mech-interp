@@ -11,5 +11,10 @@
     "lr" : 1e-3,
     "weight_decay" : 0.7,
     "num_epochs" : 100000,
+    "metrics": {
+        "excluded_loss_mod_add": {
+            "key_freqs" : [2, 6, 12, 15, 24, 43, 44, 53]
+        }
+    },
     "notes": "This run is nicer than the other one (higher weight decay), but does have always on neurons I still need to interpret."
 }

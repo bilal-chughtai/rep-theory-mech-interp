@@ -1,5 +1,7 @@
 import torch
 from utils.plotting import *
+from sympy.combinatorics.named_groups import SymmetricGroup as sympySG
+import math
 
 
 class Group:
@@ -68,6 +70,7 @@ class Group:
 class CyclicGroup(Group):
     def __init__(self, index):
         super().__init__(index = index, order = index, fourier_order = index//2+1)        
+        self.compute_fourier_basis()
 
     def compose(self, x, y):
         return (x+y)%self.order
@@ -83,6 +86,7 @@ class DihedralGroup(Group):
     """
     def __init__(self, index):
         super().__init__(index = index, order = 2*index, fourier_order = index//2+1)        
+        self.compute_fourier_basis()
 
     def idx_to_cpts(self, x):
         r = x % self.index
@@ -107,4 +111,18 @@ class DihedralGroup(Group):
             z_s = (1 + y_s) % 2
         return self.cpts_to_idx(z_r, z_s)
 
-#class SymettricGroup(Group):
+class SymmetricGroup(Group):
+    def __init__(self, index):
+        self.G = sympySG(index)
+        self.order = math.factorial(index)
+        super().__init__(index = index, order = self.order, fourier_order = None)
+        
+
+    def idx_to_perm(self, x):
+        return self.G._elements[x]
+
+    def perm_to_idx(self, perm):
+        return self.G._elements.index(perm)
+
+    def compose(self, x, y):
+        return self.perm_to_idx(self.idx_to_perm(x) * self.idx_to_perm(y))
