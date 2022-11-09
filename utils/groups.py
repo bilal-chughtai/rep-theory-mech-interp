@@ -116,6 +116,8 @@ class SymmetricGroup(Group):
         self.G = sympySG(index)
         self.order = math.factorial(index)
         super().__init__(index = index, order = self.order, fourier_order = None)
+        self.compute_natural_rep()
+        self.compute_standard_rep()
 
     def idx_to_perm(self, x):
         return self.G._elements[x]
@@ -142,6 +144,16 @@ class SymmetricGroup(Group):
         return self.natural_reps[x]
 
     def compute_standard_rep(self):
-        
+        self.standard_reps = []
+        basis_transform = torch.zeros(self.index, self.index).cuda()
+        for i in range(self.index-1):
+            basis_transform[i, i] = 1
+            basis_transform[i, i+1] = -1
+        basis_transform[self.index-1, self.index-1] = 1 #to make the transform non singular
+        for x in self.natural_reps:
+            temp = basis_transform @ x @ basis_transform.inverse()
+            self.standard_reps.append(temp[:self.index-1, :self.index-1])
+        self.standard_reps = torch.stack(self.standard_reps, dim=0)
+
     def standard_rep(self, x):
         return self.standard_reps[x]
