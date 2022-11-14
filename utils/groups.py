@@ -68,9 +68,10 @@ class Group:
     
 
 class CyclicGroup(Group):
-    def __init__(self, index):
+    def __init__(self, index, init_all):
         super().__init__(index = index, order = index, fourier_order = index//2+1)        
-        self.compute_fourier_basis()
+        if init_all:
+            self.compute_fourier_basis()
 
     def compose(self, x, y):
         return (x+y)%self.order
@@ -112,12 +113,16 @@ class DihedralGroup(Group):
         return self.cpts_to_idx(z_r, z_s)
 
 class SymmetricGroup(Group):
-    def __init__(self, index):
+    def __init__(self, index, init_all):
         self.G = sympySG(index)
         self.order = math.factorial(index)
         super().__init__(index = index, order = self.order, fourier_order = None)
-        self.compute_natural_rep()
-        self.compute_standard_rep()
+        if init_all:
+            self.compute_natural_rep()
+            self.compute_standard_rep()
+            self.compute_product_standard_sign_rep()
+            self.all_data = self.get_all_data()[:, :2]
+            self.compute_trace_tensor_cubes()
 
     def idx_to_perm(self, x):
         return self.G._elements[x]
@@ -154,6 +159,49 @@ class SymmetricGroup(Group):
             temp = basis_transform @ x @ basis_transform.inverse()
             self.standard_reps.append(temp[:self.index-1, :self.index-1])
         self.standard_reps = torch.stack(self.standard_reps, dim=0)
+        temp = self.standard_reps.reshape(self.order, (self.index-1)*(self.index-1))
+        self.standard_reps_orth = torch.linalg.qr(temp)[0]
 
     def standard_rep(self, x):
         return self.standard_reps[x]
+
+    def compute_product_standard_sign_rep(self):
+        self.product_standard_sign_reps = []
+        for i in range(self.standard_reps.shape[0]):
+            if self.signature(i) == 1:
+                self.product_standard_sign_reps.append(self.standard_reps[i])
+            else:
+                self.product_standard_sign_reps.append(-self.standard_reps[i])
+        self.product_standard_sign_reps = torch.stack(self.product_standard_sign_reps, dim=0)
+        temp = self.product_standard_sign_reps.reshape(self.order, (self.index-1)*(self.index-1))
+        self.product_standard_sign_reps_orth = torch.linalg.qr(temp)[0]
+
+    def product_standard_sign_rep(self, x):
+        return self.product_standard_sign_reps[x]
+
+    def compute_trace_tensor_cube(self, all_data, rep):
+        print(f'Computing trace tensor cube for representation {rep}')
+        N = all_data.shape[0]
+        t = torch.zeros((self.order*self.order, self.order), dtype=torch.float).cuda()
+        for i in range(N):
+            if i%1000 == 0:
+                print('{i} / {N}')
+            x = all_data[i, 0]
+            x_rep = rep(x.item())
+            y = all_data[i, 1]
+            y_rep = rep(y.item())
+            temp = x_rep.mm(y_rep)
+            for z_idx in range(self.order):
+                z_rep = rep(z_idx)
+                t[i, z_idx] = torch.trace(temp.mm(z_rep.inverse())) # transpose is inverse here
+        return t.reshape(self.order, self.order, self.order)
+
+    def compute_trace_tensor_cubes(self):
+        #self.natural_trace_tensor_cubes = self.compute_trace_tensor_cube(self.all_data, self.natural_rep) 
+        #self.natural_trace_tensor_cubes -= self.natural_trace_tensor_cubes.mean(-1)
+        self.standard_trace_tensor_cubes = self.compute_trace_tensor_cube(self.all_data, self.standard_rep)
+        self.standard_trace_tensor_cubes -= self.standard_trace_tensor_cubes.mean(-1)
+        self.standard_sign_trace_tensor_cubes = self.compute_trace_tensor_cube(self.all_data, self.product_standard_sign_rep)
+        self.standard_sign_trace_tensor_cubes -= self.standard_sign_trace_tensor_cubes.mean(-1)
+
+    
