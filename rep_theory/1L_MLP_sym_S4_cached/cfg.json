@@ -11,6 +11,8 @@
     "lr" : 1e-3,
     "weight_decay" : 0.7, 
     "num_epochs" : 200000,
-    "metrics": [],
+    "metrics": {
+        "class": "SymmetricMetrics"
+    },
     "notes": "previously 0.7 wd and 160k epochs"
 }

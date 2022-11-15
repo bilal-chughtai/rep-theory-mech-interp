@@ -13,6 +13,7 @@ from utils.plotting import *
 from utils.groups import *
 from utils.models import *
 from utils.metrics import *
+from utils.config import load_cfg
 
 import wandb
 
@@ -26,8 +27,7 @@ track_metrics = True
 task_dir = "1L_MLP_sym_S5"
 
 print('Loading cfg...')
-seed, frac_train, layers, lr, group_param, weight_decay, num_epochs, group_type, architecture_type, metric_cfg = load_cfg(task_dir)
-metric_obj = eval(metric_cfg['class'])
+seed, frac_train, layers, lr, group_param, weight_decay, num_epochs, group_type, architecture_type, metric_cfg, metric_obj = load_cfg(task_dir)
 
 print('Initializing group...')
 group = group_type(group_param, init_all=track_metrics)
@@ -56,7 +56,7 @@ test_accs = []
 print('Initializing model...')
 model = architecture_type(layers, group.order, seed)
 model.cuda()
-metrics = metric_obj(group, train_labels, test_data, test_labels, track_metrics, metric_cfg)
+metrics = metric_obj(group, True, True, train_labels, test_data, test_labels)
 optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
 
 print('Training...')

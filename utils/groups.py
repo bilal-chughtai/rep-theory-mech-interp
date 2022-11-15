@@ -1,6 +1,7 @@
 import torch
 from utils.plotting import *
 from sympy.combinatorics.named_groups import SymmetricGroup as sympySG
+from sympy.combinatorics import Permutation
 import math
 
 
@@ -66,6 +67,12 @@ class Group:
     def animate_fourier_basis(self):
         animate_lines(self.fourier_basis, snapshot_index=self.fourier_basis_names, snapshot='Fourier Component', title='Graphs of Fourier Components (Use Slider)')
     
+    def compute_trivial_rep(self):
+        self.trivial_reps = torch.ones(self.order, 1, 1).cuda()
+        self.trivial_reps_orth = self.trivial_reps.reshape(self.order, 1)
+
+    def trivial_rep(self, x):
+        return self.trivial_reps[x]
 
 class CyclicGroup(Group):
     def __init__(self, index, init_all):
@@ -120,7 +127,10 @@ class SymmetricGroup(Group):
         if init_all:
             self.compute_natural_rep()
             self.compute_standard_rep()
-            self.compute_product_standard_sign_rep()
+            self.compute_standard_sign_rep()
+            self.compute_sign_rep()
+            self.compute_trivial_rep()
+            #self.compute_S4_2d_rep()
             self.all_data = self.get_all_data()[:, :2]
             self.compute_trace_tensor_cubes()
 
@@ -144,6 +154,10 @@ class SymmetricGroup(Group):
         self.natural_reps = torch.zeros(self.order, self.index, self.index).cuda()
         for x in range(self.order):
             self.natural_reps[x, idx, self.idx_to_perm(x)(idx)] = 1
+        self.natural_reps.cuda()
+        self.natural_reps_orth = self.natural_reps.reshape(self.order, self.index*self.index)
+        self.natural_reps_orth = torch.linalg.qr(self.natural_reps_orth)[0]
+
 
     def natural_rep(self, x):
         return self.natural_reps[x]
@@ -158,26 +172,60 @@ class SymmetricGroup(Group):
         for x in self.natural_reps:
             temp = basis_transform @ x @ basis_transform.inverse()
             self.standard_reps.append(temp[:self.index-1, :self.index-1])
-        self.standard_reps = torch.stack(self.standard_reps, dim=0)
+        self.standard_reps = torch.stack(self.standard_reps, dim=0).cuda()
         temp = self.standard_reps.reshape(self.order, (self.index-1)*(self.index-1))
+        # to orthogonalise, can take the qr decomposition
+        # or can take svd and throw away the singular columns
+        # these give the same answer
+        # s, u, v = torch.linalg.svd(temp)
+        # self.standard_sign_reps_orth = u[:, :(self.index)*(self.index)]
         self.standard_reps_orth = torch.linalg.qr(temp)[0]
 
     def standard_rep(self, x):
         return self.standard_reps[x]
 
-    def compute_product_standard_sign_rep(self):
-        self.product_standard_sign_reps = []
+    def compute_standard_sign_rep(self):
+        self.standard_sign_reps = []
         for i in range(self.standard_reps.shape[0]):
-            if self.signature(i) == 1:
-                self.product_standard_sign_reps.append(self.standard_reps[i])
-            else:
-                self.product_standard_sign_reps.append(-self.standard_reps[i])
-        self.product_standard_sign_reps = torch.stack(self.product_standard_sign_reps, dim=0)
-        temp = self.product_standard_sign_reps.reshape(self.order, (self.index-1)*(self.index-1))
-        self.product_standard_sign_reps_orth = torch.linalg.qr(temp)[0]
+            self.standard_sign_reps.append(self.signature(i)*self.standard_reps[i])
+        self.standard_sign_reps = torch.stack(self.standard_sign_reps, dim=0).cuda()
+        self.standard_sign_reps_orth = self.standard_sign_reps.reshape(self.order, (self.index-1)*(self.index-1))
+        self.standard_sign_reps_orth = torch.linalg.qr(self.standard_sign_reps_orth)[0]
 
-    def product_standard_sign_rep(self, x):
-        return self.product_standard_sign_reps[x]
+    def standard_sign_rep(self, x):
+        return self.standard_sign_reps[x]
+
+    def compute_sign_rep(self):
+        self.sign_reps = torch.zeros(self.order, 1, 1)
+        for i in range(self.order):
+            self.sign_reps[i, 0, 0] = self.signature(i)
+        self.sign_reps = torch.tensor(self.sign_reps).cuda()
+        self.sign_reps_orth = self.sign_reps.reshape(self.order, 1)
+
+    def sign_rep(self, x):
+        return self.sign_reps[x]
+
+    def compute_S4_2d_rep(self):
+        # we just compute the representation here by multiplying out the representation on generators lol 
+        # https://arxiv.org/pdf/1112.0687.pdf
+        generators = self.G.generators
+        rep = {}
+        rep[Permutation(0, 1, 2, 3)] = torch.tensor([[-1, -1], [0, 1]]).float() #(0, 1, 2, 3)
+        rep[Permutation(3, 2, 1, 0)] = rep[Permutation(0, 1, 2, 3)].inverse()
+        rep[Permutation(3)(0,1)] = torch.tensor([[1, 0], [-1, -1]]).float() #(0, 1)
+
+        self.S4_2d_reps = torch.zeros(self.order, 2, 2).cuda()
+        for i in range(self.order):
+            generator_product = self.G.generator_product(self.idx_to_perm(i), original=True)
+            result = torch.eye(2).float()
+            for g in generator_product:
+                result = result @ rep[g]
+            self.S4_2d_reps[i] = result
+        self.S4_2d_reps_orth = self.S4_2d_reps.reshape(self.order, 4)
+        self.S4_2d_reps_orth = torch.linalg.qr(self.S4_2d_reps_orth)[0]
+
+    def S4_2d_rep(self, x):
+        return self.S4_2d_reps[x]
 
     def compute_trace_tensor_cube(self, all_data, rep):
         print(f'Computing trace tensor cube for representation {rep}')
@@ -185,7 +233,7 @@ class SymmetricGroup(Group):
         t = torch.zeros((self.order*self.order, self.order), dtype=torch.float).cuda()
         for i in range(N):
             if i%1000 == 0:
-                print('{i} / {N}')
+                print(f'{i} / {N}')
             x = all_data[i, 0]
             x_rep = rep(x.item())
             y = all_data[i, 1]
@@ -194,14 +242,24 @@ class SymmetricGroup(Group):
             for z_idx in range(self.order):
                 z_rep = rep(z_idx)
                 t[i, z_idx] = torch.trace(temp.mm(z_rep.inverse())) # transpose is inverse here
-        return t.reshape(self.order, self.order, self.order)
+        return t.reshape(self.order, self.order, self.order).cuda()
 
     def compute_trace_tensor_cubes(self):
+        # natural rep isnt irreduible
         #self.natural_trace_tensor_cubes = self.compute_trace_tensor_cube(self.all_data, self.natural_rep) 
         #self.natural_trace_tensor_cubes -= self.natural_trace_tensor_cubes.mean(-1)
         self.standard_trace_tensor_cubes = self.compute_trace_tensor_cube(self.all_data, self.standard_rep)
         self.standard_trace_tensor_cubes -= self.standard_trace_tensor_cubes.mean(-1)
-        self.standard_sign_trace_tensor_cubes = self.compute_trace_tensor_cube(self.all_data, self.product_standard_sign_rep)
+        self.standard_sign_trace_tensor_cubes = self.compute_trace_tensor_cube(self.all_data, self.standard_sign_rep)
         self.standard_sign_trace_tensor_cubes -= self.standard_sign_trace_tensor_cubes.mean(-1)
+        self.sign_trace_tensor_cubes = self.compute_trace_tensor_cube(self.all_data, self.sign_rep)
+        self.sign_trace_tensor_cubes -= self.sign_trace_tensor_cubes.mean(-1)
+        self.trivial_trace_tensor_cubes = self.compute_trace_tensor_cube(self.all_data, self.trivial_rep)
+        self.trivial_trace_tensor_cubes -= self.trivial_trace_tensor_cubes.mean(-1)
+        #self.S4_2d_trace_tensor_cubes = self.compute_trace_tensor_cube(self.all_data, self.S4_2d_rep)
+        #self.S4_2d_trace_tensor_cubes -= self.S4_2d_trace_tensor_cubes.mean(-1)
+
+
+
 
     

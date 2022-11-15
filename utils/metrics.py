@@ -1,9 +1,11 @@
 from utils.plotting import fft2d
-from utils.models import *
+from utils.models import loss_fn
 import torch
+import torch.nn.functional as F
 
 class Metrics():
-    def __init__(self, group, train_labels, test_data, test_labels, track_metrics):
+    def __init__(self, group, training, track_metrics, train_labels=None, test_data=None, test_labels=None):
+        self.training = training
         self.train_labels = train_labels
         self.test_data = test_data
         self.test_labels = test_labels
@@ -29,18 +31,30 @@ class Metrics():
 
 
 class SymmetricMetrics(Metrics):
-    def __init__(self, group, train_labels, test_data, test_labels, track_metrics, cfg):
-        super().__init__(group, train_labels, test_data, test_labels, track_metrics)
+    def __init__(self, group, training, track_metrics, train_labels=None, test_data=None, test_labels=None, cfg=None):
+        super().__init__(group, training, track_metrics, train_labels, test_data, test_labels)
         
-    def get_metrics(self, model, train_logits, train_loss):
-        test_logits, all_logits = self.get_test_all_logits(model)
-        metrics = self.get_standard_metrics(test_logits, train_logits, train_loss)
+    def get_metrics(self, model, train_logits=None, train_loss=None):
+        metrics = {}
+        if self.training:
+            test_logits, all_logits = self.get_test_all_logits(model)
+            metrics = self.get_standard_metrics(test_logits, train_logits, train_loss)
+        else:
+            all_logits = model(self.all_data)
         if self.track_metrics:
+            #metrics['logit_natural_trace_similarity'] = self.logit_trace_similarity(all_logits, self.group.natural_trace_tensor_cubes)
             metrics['logit_standard_trace_similarity'] = self.logit_trace_similarity(all_logits, self.group.standard_trace_tensor_cubes)
             metrics['logit_standard_sign_trace_similarity'] = self.logit_trace_similarity(all_logits, self.group.standard_sign_trace_tensor_cubes)
-            metrics['percentage_embeddings_explained_by_standard_rep'] = self.percentage_embeddings_explained_by_rep(model, self.group.standard_reps_orth)
-            metrics['percentage_embeddings_explained_by_standard_sign_rep'] = self.percentage_embeddings_explained_by_rep(model, self.group.product_standard_sign_reps_orth)
-
+            metrics['logit_sign_trace_similarity'] = self.logit_trace_similarity(all_logits, self.group.sign_trace_tensor_cubes)
+            metrics['logit_trivial_trace_similarity'] = self.logit_trace_similarity(all_logits, self.group.trivial_trace_tensor_cubes)
+            #metrics['logit_S4_2d_rep_trace_similarity'] = self.logit_trace_similarity(all_logits, self.group.S4_2d_trace_tensor_cubes)
+            #metrics['percentage_embeddings_explained_by_natural_rep'] = self.percentage_embeddings_explained_by_rep(model, self.group.natural_reps_orth)
+            metrics['percentage_embeddings_explained_by_standard_rep'], metrics['norm_embeddings_explained_by_standard_rep'] = self.embeddings_explained_by_rep(model, self.group.standard_reps_orth)
+            metrics['percentage_embeddings_explained_by_standard_sign_rep'], metrics['norm_embeddings_explained_by_standard_sign_rep'] = self.embeddings_explained_by_rep(model, self.group.standard_sign_reps_orth)
+            metrics['percentage_embeddings_explained_by_sign_rep'], metrics['norm_embeddings_explained_by_sign_rep'] = self.embeddings_explained_by_rep(model, self.group.sign_reps_orth)
+            metrics['percentage_embeddings_explained_by_trivial_rep'], metrics['norm_embeddings_explained_by_trivial_rep'] = self.embeddings_explained_by_rep(model, self.group.trivial_reps_orth)
+            #metrics['percentage_embeddings_explained_by_S4_2d_rep'], metrics['norm_embeddings_explained_by_S4_2d_rep'] = self.embeddings_explained_by_rep(model, self.group.S4_2d_reps_orth)
+            
         return metrics
 
     def logit_trace_similarity(self, logits, trace_cube):
@@ -62,7 +76,8 @@ class SymmetricMetrics(Metrics):
             P = B @ (B.T @ B).inverse() @ B.T
             return P
 
-    def percentage_embeddings_explained_by_rep(self, model, orth_reps):
+    def embeddings_explained_by_rep(self, model, orth_reps):
+        # returns, percent and abolute
 
         P= self.projection_matrix_general(orth_reps)
         assert(torch.allclose(P, P@P, atol=1e-6))
@@ -75,18 +90,18 @@ class SymmetricMetrics(Metrics):
         num = proj_a.pow(2).sum() + proj_b.pow(2).sum() + proj_U.pow(2).sum()
         denom = model.W_E_a.pow(2).sum() + model.W_E_b.pow(2).sum() + model.W_U.pow(2).sum()
 
-        return (num/denom).item()
+        return (num/denom).item(), num.item()
 
 
 
 
 
 class CyclicMetrics(Metrics):
-    def __init__(self, group, train_labels, test_data, test_labels, track_metrics, cfg):
-        super().__init__(group, train_labels, test_data, test_labels, track_metrics)
+    def __init__(self, group, training, track_metrics, train_labels=None, test_data=None, test_labels=None, cfg=None):
+        super().__init__(group, training, track_metrics, train_labels, test_data, test_labels)
         self.key_freqs = cfg['key_freqs']
 
-    def get_metrics(self, model, train_logits, train_loss):
+    def get_metrics(self, model, train_logits=None, train_loss=None):
         test_logits, all_logits = self.get_test_all_logits(model)
         metrics = self.get_standard_metrics(test_logits, train_logits, train_loss)
         if self.track_metrics:
