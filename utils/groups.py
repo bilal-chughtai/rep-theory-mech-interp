@@ -1,3 +1,4 @@
+import os
 import torch
 from utils.plotting import *
 from sympy.combinatorics.named_groups import SymmetricGroup as sympySG
@@ -39,7 +40,7 @@ class Group:
                 data[i*self.order+j, 1] = j
                 data[i*self.order+j, 2] = self.multiplication_table[i, j]
         if shuffle_seed:
-            torch.manual_seed(shuffle_seed)
+            torch.manual_seed(shuffle_seed) 
             shuffled_indices = torch.randperm(self.order*self.order)
             data = data[shuffled_indices]
         return data
@@ -130,7 +131,8 @@ class SymmetricGroup(Group):
             self.compute_standard_sign_rep()
             self.compute_sign_rep()
             self.compute_trivial_rep()
-            #self.compute_S4_2d_rep()
+            if self.index == 4:
+                self.compute_S4_2d_rep()
             self.all_data = self.get_all_data()[:, :2]
             self.compute_trace_tensor_cubes()
 
@@ -159,9 +161,6 @@ class SymmetricGroup(Group):
         self.natural_reps_orth = torch.linalg.qr(self.natural_reps_orth)[0]
 
 
-    def natural_rep(self, x):
-        return self.natural_reps[x]
-
     def compute_standard_rep(self):
         self.standard_reps = []
         basis_transform = torch.zeros(self.index, self.index).cuda()
@@ -181,8 +180,6 @@ class SymmetricGroup(Group):
         # self.standard_sign_reps_orth = u[:, :(self.index)*(self.index)]
         self.standard_reps_orth = torch.linalg.qr(temp)[0]
 
-    def standard_rep(self, x):
-        return self.standard_reps[x]
 
     def compute_standard_sign_rep(self):
         self.standard_sign_reps = []
@@ -192,8 +189,6 @@ class SymmetricGroup(Group):
         self.standard_sign_reps_orth = self.standard_sign_reps.reshape(self.order, (self.index-1)*(self.index-1))
         self.standard_sign_reps_orth = torch.linalg.qr(self.standard_sign_reps_orth)[0]
 
-    def standard_sign_rep(self, x):
-        return self.standard_sign_reps[x]
 
     def compute_sign_rep(self):
         self.sign_reps = torch.zeros(self.order, 1, 1)
@@ -201,9 +196,6 @@ class SymmetricGroup(Group):
             self.sign_reps[i, 0, 0] = self.signature(i)
         self.sign_reps = torch.tensor(self.sign_reps).cuda()
         self.sign_reps_orth = self.sign_reps.reshape(self.order, 1)
-
-    def sign_rep(self, x):
-        return self.sign_reps[x]
 
     def compute_S4_2d_rep(self):
         # we just compute the representation here by multiplying out the representation on generators lol 
@@ -224,42 +216,45 @@ class SymmetricGroup(Group):
         self.S4_2d_reps_orth = self.S4_2d_reps.reshape(self.order, 4)
         self.S4_2d_reps_orth = torch.linalg.qr(self.S4_2d_reps_orth)[0]
 
-    def S4_2d_rep(self, x):
-        return self.S4_2d_reps[x]
-
-    def compute_trace_tensor_cube(self, all_data, rep):
-        print(f'Computing trace tensor cube for representation {rep}')
+    def compute_trace_tensor_cube(self, all_data, rep, rep_name):
+        print(f'Computing trace tensor cube for {rep_name} representation')
+        filename = f'../utils/cache/S{self.index}_{rep_name}_trace_tensor_cube.pt'
+        if os.path.exists(filename):
+            print('Loading from file')
+            return torch.load(filename)
         N = all_data.shape[0]
         t = torch.zeros((self.order*self.order, self.order), dtype=torch.float).cuda()
         for i in range(N):
             if i%1000 == 0:
                 print(f'{i} / {N}')
             x = all_data[i, 0]
-            x_rep = rep(x.item())
+            x_rep = rep[x.item()]
             y = all_data[i, 1]
-            y_rep = rep(y.item())
+            y_rep = rep[y.item()]
             temp = x_rep.mm(y_rep)
             for z_idx in range(self.order):
-                z_rep = rep(z_idx)
-                t[i, z_idx] = torch.trace(temp.mm(z_rep.inverse())) # transpose is inverse here
-        return t.reshape(self.order, self.order, self.order).cuda()
+                z_rep = rep[z_idx]
+                t[i, z_idx] = torch.trace(temp.mm(z_rep.inverse()))
+        t = t.reshape(self.order, self.order, self.order).cuda()
+        f = open(filename, 'wb')
+        torch.save(t, f)
+        return t
 
     def compute_trace_tensor_cubes(self):
         # natural rep isnt irreduible
         #self.natural_trace_tensor_cubes = self.compute_trace_tensor_cube(self.all_data, self.natural_rep) 
         #self.natural_trace_tensor_cubes -= self.natural_trace_tensor_cubes.mean(-1)
-        self.standard_trace_tensor_cubes = self.compute_trace_tensor_cube(self.all_data, self.standard_rep)
+        self.standard_trace_tensor_cubes = self.compute_trace_tensor_cube(self.all_data, self.standard_reps, 'standard')
         self.standard_trace_tensor_cubes -= self.standard_trace_tensor_cubes.mean(-1)
-        self.standard_sign_trace_tensor_cubes = self.compute_trace_tensor_cube(self.all_data, self.standard_sign_rep)
+        self.standard_sign_trace_tensor_cubes = self.compute_trace_tensor_cube(self.all_data, self.standard_sign_reps, 'standard_sign')
         self.standard_sign_trace_tensor_cubes -= self.standard_sign_trace_tensor_cubes.mean(-1)
-        self.sign_trace_tensor_cubes = self.compute_trace_tensor_cube(self.all_data, self.sign_rep)
+        self.sign_trace_tensor_cubes = self.compute_trace_tensor_cube(self.all_data, self.sign_reps, 'sign')
         self.sign_trace_tensor_cubes -= self.sign_trace_tensor_cubes.mean(-1)
-        self.trivial_trace_tensor_cubes = self.compute_trace_tensor_cube(self.all_data, self.trivial_rep)
+        self.trivial_trace_tensor_cubes = self.compute_trace_tensor_cube(self.all_data, self.trivial_reps, 'trivial')
         self.trivial_trace_tensor_cubes -= self.trivial_trace_tensor_cubes.mean(-1)
-        #self.S4_2d_trace_tensor_cubes = self.compute_trace_tensor_cube(self.all_data, self.S4_2d_rep)
-        #self.S4_2d_trace_tensor_cubes -= self.S4_2d_trace_tensor_cubes.mean(-1)
-
-
+        if self.index == 4:
+            self.S4_2d_trace_tensor_cubes = self.compute_trace_tensor_cube(self.all_data, self.S4_2d_reps, 's4_2d')
+            self.S4_2d_trace_tensor_cubes -= self.S4_2d_trace_tensor_cubes.mean(-1)
 
 
     

@@ -42,18 +42,23 @@ class SymmetricMetrics(Metrics):
         else:
             all_logits = model(self.all_data)
         if self.track_metrics:
-            #metrics['logit_natural_trace_similarity'] = self.logit_trace_similarity(all_logits, self.group.natural_trace_tensor_cubes)
             metrics['logit_standard_trace_similarity'] = self.logit_trace_similarity(all_logits, self.group.standard_trace_tensor_cubes)
+            metrics['percent_embed_standard_rep'], metrics['percent_unembed_standard_rep'], metrics['norm_embed_standard_rep'], metrics['norm_unembed_standard_rep'] = self.embeddings_explained_by_rep(model, self.group.standard_reps_orth)
+
             metrics['logit_standard_sign_trace_similarity'] = self.logit_trace_similarity(all_logits, self.group.standard_sign_trace_tensor_cubes)
+            metrics['percent_embed_standard_sign_rep'], metrics['percent_unembed_standard_sign_rep'], metrics['norm_embed_standard_sign_rep'], metrics['norm_unembed_standard_sign_rep'] = self.embeddings_explained_by_rep(model, self.group.standard_sign_reps_orth)
+
             metrics['logit_sign_trace_similarity'] = self.logit_trace_similarity(all_logits, self.group.sign_trace_tensor_cubes)
+            metrics['percent_embed_sign_rep'], metrics['percent_unembed_sign_rep'], metrics['norm_embed_sign_rep'], metrics['norm_unembed_sign_rep'] = self.embeddings_explained_by_rep(model, self.group.sign_reps_orth)
+
             metrics['logit_trivial_trace_similarity'] = self.logit_trace_similarity(all_logits, self.group.trivial_trace_tensor_cubes)
-            #metrics['logit_S4_2d_rep_trace_similarity'] = self.logit_trace_similarity(all_logits, self.group.S4_2d_trace_tensor_cubes)
+            metrics['percent_embed_trivial_rep'], metrics['percent_unembed_trivial_rep'], metrics['norm_embed_trivial_rep'], metrics['norm_unembed_trivial_rep'] = self.embeddings_explained_by_rep(model, self.group.trivial_reps_orth)
+            if self.group.index == 4:
+                metrics['logit_S4_2d_rep_trace_similarity'] = self.logit_trace_similarity(all_logits, self.group.S4_2d_trace_tensor_cubes)
+                metrics['percent_embed_S4_2d_rep'], metrics['percent_unembed_S4_2d_rep'], metrics['norm_embed_S4_2d_rep'], metrics['norm_unembed_S4_2d_rep'] = self.embeddings_explained_by_rep(model, self.group.S4_2d_reps_orth)
+            
+            #metrics['logit_natural_trace_similarity'] = self.logit_trace_similarity(all_logits, self.group.natural_trace_tensor_cubes)
             #metrics['percentage_embeddings_explained_by_natural_rep'] = self.percentage_embeddings_explained_by_rep(model, self.group.natural_reps_orth)
-            metrics['percentage_embeddings_explained_by_standard_rep'], metrics['norm_embeddings_explained_by_standard_rep'] = self.embeddings_explained_by_rep(model, self.group.standard_reps_orth)
-            metrics['percentage_embeddings_explained_by_standard_sign_rep'], metrics['norm_embeddings_explained_by_standard_sign_rep'] = self.embeddings_explained_by_rep(model, self.group.standard_sign_reps_orth)
-            metrics['percentage_embeddings_explained_by_sign_rep'], metrics['norm_embeddings_explained_by_sign_rep'] = self.embeddings_explained_by_rep(model, self.group.sign_reps_orth)
-            metrics['percentage_embeddings_explained_by_trivial_rep'], metrics['norm_embeddings_explained_by_trivial_rep'] = self.embeddings_explained_by_rep(model, self.group.trivial_reps_orth)
-            #metrics['percentage_embeddings_explained_by_S4_2d_rep'], metrics['norm_embeddings_explained_by_S4_2d_rep'] = self.embeddings_explained_by_rep(model, self.group.S4_2d_reps_orth)
             
         return metrics
 
@@ -86,11 +91,15 @@ class SymmetricMetrics(Metrics):
         proj_a = P @ model.W_E_a
         proj_b = P @ model.W_E_b
         proj_U = P @ model.W_U.T
+        
+        embed_num = proj_a.pow(2).sum() + proj_b.pow(2).sum().item()
+        embed_den = model.W_E_a.pow(2).sum() + model.W_E_b.pow(2).sum().item()
+        unembed_num = proj_U.pow(2).sum().item() 
+        unembed_den = model.W_U.pow(2).sum().item()
 
-        num = proj_a.pow(2).sum() + proj_b.pow(2).sum() + proj_U.pow(2).sum()
-        denom = model.W_E_a.pow(2).sum() + model.W_E_b.pow(2).sum() + model.W_U.pow(2).sum()
-
-        return (num/denom).item(), num.item()
+        percent_embed = embed_num/embed_den
+        percent_unembed = unembed_num/unembed_den
+        return percent_embed, percent_unembed, embed_num, unembed_num
 
 
 

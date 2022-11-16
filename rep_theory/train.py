@@ -18,9 +18,9 @@ from utils.config import load_cfg
 import wandb
 
 if torch.cuda.is_available:
-  print('Good to go!')
+  print('CUDA available!')
 else:
-  print('Training might be rather slow')
+  print('CUDA not available!')
 
 track_metrics = True
 

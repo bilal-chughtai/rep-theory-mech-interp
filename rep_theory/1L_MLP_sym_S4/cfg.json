@@ -2,7 +2,7 @@
     "model": "OneLayerMLP",
     "group": "SymmetricGroup",
     "group_parameter": 4,
-    "seed": 1,
+    "seed": 4,
     "frac_train" : 0.5,
     "layers": {
         "embed_dim": 256,
