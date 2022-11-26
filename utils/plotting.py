@@ -62,13 +62,15 @@ def imshow_fourier(tensor, fourier_basis_names, title='', animation_name='snapsh
 
 inputs_heatmap = partial(imshow, xaxis='Input 1', yaxis='Input 2', color_continuous_scale='RdBu', color_continuous_midpoint=0.0)
 
-def line(x, y=None, hover=None, xaxis='', yaxis='', save=False, **kwargs):
+def line(x, y=None, hover=None, xaxis='', yaxis='', log_y=False, save=False, **kwargs):
     if type(y)==torch.Tensor:
         y = to_numpy(y, flat=True)
     if type(x)==torch.Tensor:
         x=to_numpy(x, flat=True)
     fig = px.line(x, y=y, hover_name=hover, **kwargs)
     fig.update_layout(xaxis_title=xaxis, yaxis_title=yaxis)
+    if log_y:    
+        fig.update_layout(yaxis_type="log")
     fig.show()
     if save:
         fig.write_image(save)

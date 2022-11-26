@@ -10,7 +10,7 @@
     },
     "lr" : 1e-3,
     "weight_decay" : 0.5,
-    "num_epochs" : 400000,
+    "num_epochs" : 150000,
     "metrics": {
         "class": "SymmetricMetrics"
     }

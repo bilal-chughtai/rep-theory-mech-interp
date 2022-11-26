@@ -11,7 +11,7 @@ import json
 
 class BilinearNet(HookedRootModule):
     """
-    A completely linear network. W_E_a and W_E_b are embedding layers, whose outputs are elementwise multiplied. The result is unembedded by W_U.
+    A completely linear network. W_x and W_y are embedding layers, whose outputs are elementwise multiplied. The result is unembedded by W_U.
     """
     def __init__(self, layers, n, seed=0):
         # embed_dim : dimension of the embedding
@@ -22,8 +22,8 @@ class BilinearNet(HookedRootModule):
         embed_dim = layers['embed_dim']
         
         # initialise parameters
-        self.W_E_a = nn.Parameter(torch.randn(n, embed_dim)/np.sqrt(embed_dim))
-        self.W_E_b = nn.Parameter(torch.randn(n, embed_dim)/np.sqrt(embed_dim))
+        self.W_x = nn.Parameter(torch.randn(n, embed_dim)/np.sqrt(embed_dim))
+        self.W_y = nn.Parameter(torch.randn(n, embed_dim)/np.sqrt(embed_dim))
         self.W_U = nn.Parameter(torch.randn(embed_dim, n)/np.sqrt(embed_dim))
 
         self.x_embed = HookPoint()
@@ -37,9 +37,9 @@ class BilinearNet(HookedRootModule):
 
     def forward(self, data):
         x = data[:, 0] # (batch) 
-        x_embed = self.x_embed(self.W_E_a[x]) # (batch, embed_dim)
+        x_embed = self.x_embed(self.W_x[x]) # (batch, embed_dim)
         y = data[:, 1]
-        y_embed = self.y_embed(self.W_E_b[y]) # (batch, embed_dim)
+        y_embed = self.y_embed(self.W_y[y]) # (batch, embed_dim)
         product = self.product(x_embed * y_embed) # (batch, embed_dim)
         out = self.out(product @ self.W_U) # (batch, n)
         return out
@@ -56,8 +56,8 @@ class OneLayerMLP(HookedRootModule):
         hidden = layers['hidden_dim']
 
         # xavier initialise parameters
-        self.W_E_a = nn.Parameter(torch.randn(n, embed_dim)/np.sqrt(embed_dim))
-        self.W_E_b = nn.Parameter(torch.randn(n, embed_dim)/np.sqrt(embed_dim))
+        self.W_x = nn.Parameter(torch.randn(n, embed_dim)/np.sqrt(embed_dim))
+        self.W_y = nn.Parameter(torch.randn(n, embed_dim)/np.sqrt(embed_dim))
         self.W = nn.Parameter(torch.randn(2*embed_dim, hidden)/np.sqrt(2*embed_dim))
         self.relu = nn.ReLU()
         self.W_U = nn.Parameter(torch.randn(hidden, n)/np.sqrt(hidden))
@@ -75,9 +75,9 @@ class OneLayerMLP(HookedRootModule):
 
     def forward(self, data):
         x = data[:, 0] # (batch)
-        x_embed = self.x_embed(self.W_E_a[x]) # (batch, embed_dim)
+        x_embed = self.x_embed(self.W_x[x]) # (batch, embed_dim)
         y = data[:, 1] # (batch)
-        y_embed = self.y_embed(self.W_E_b[y]) # (batch, embed_dim)
+        y_embed = self.y_embed(self.W_y[y]) # (batch, embed_dim)
         embed_stack = self.embed_stack(torch.hstack((x_embed, y_embed))) # (batch, 2*embed_dim)
         hidden = self.hidden(self.relu(embed_stack @ self.W)) # (batch, hidden)
         out = self.out(hidden @ self.W_U) # (batch, n)

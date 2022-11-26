@@ -9,7 +9,9 @@
         "hidden_dim": 128
     },
     "lr" : 1e-3,
-    "weight_decay" : 0.7,
-    "num_epochs" : 50000,
-    "metrics": []
+    "weight_decay" : 0.5,
+    "num_epochs" : 400000,
+    "metrics": {
+        "class": "SymmetricMetrics"
+    }
 }

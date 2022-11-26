@@ -18,12 +18,14 @@ class Group:
         self.order = order 
         self.fourier_order = fourier_order  
         self.compute_multiplication_table()
+        #self.compute_conjugacy_classes()
+        #self.compute_element_orders()
 
     def compose(self, x, y):
         raise NotImplementedError
 
     def inverse(self, x):
-        raise NotImplementedError
+        return torch.argmin(self.multiplication_table[x])
     
     def compute_multiplication_table(self):
         table = torch.zeros((self.order, self.order), dtype=torch.int64)
@@ -45,6 +47,55 @@ class Group:
             data = data[shuffled_indices]
         return data
     
+    def get_subset_of_data(self, indices1, indices2 = 'default', shuffle_seed=False):
+        if indices2 == 'default':
+            indices2 = indices1
+        data=torch.zeros((len(indices1)*len(indices2), 3), dtype=torch.int64)
+        for i in range(len(indices1)):
+            for j in range(len(indices2)):
+                data[i*len(indices1)+j, 0] = indices1[i]
+                data[i*len(indices1)+j, 1] = indices2[j]
+                data[i*len(indices1)+j, 2] = self.multiplication_table[indices1[i], indices2[j]]
+        if shuffle_seed:
+            torch.manual_seed(shuffle_seed) 
+            shuffled_indices = torch.randperm(len(indices1)*len(indices2))
+            data = data[shuffled_indices]
+        return data
+    
+    def compute_conjugacy_classes(self):
+        self.conjugacy_classes = []
+        seen = set()
+        for i in range(self.order):
+            if i in seen:
+                continue
+            current_set = []
+            for j in range(self.order):
+                # compute jij^-1
+                conjugate = self.multiplication_table[self.multiplication_table[j, i], self.inverse(j)].item()
+                if conjugate not in current_set:
+                    current_set.append(conjugate)
+                seen.add(conjugate)
+            self.conjugacy_classes.append(current_set)
+    
+    def compute_element_orders(self):
+        # this doesnt work for S_5 as element 0 isnt identity
+        orders = []
+        for i in range(1):
+            print(i)
+            current = i
+            order = 1
+            while current != 0:
+                print(current)
+                current = self.multiplication_table[current, i].item()
+                order += 1
+            orders.append(order)
+        self.orders = orders
+
+    
+    
+
+
+
 
     # Fourier basis for cylic-y groups. Should refactor into a different parent class eventually.
     def compute_fourier_basis(self):
@@ -125,6 +176,7 @@ class SymmetricGroup(Group):
         self.G = sympySG(index)
         self.order = math.factorial(index)
         super().__init__(index = index, order = self.order, fourier_order = None)
+        self.compute_signatures()
         if init_all:
             self.compute_natural_rep()
             self.compute_standard_rep()
@@ -134,6 +186,7 @@ class SymmetricGroup(Group):
             if self.index == 4:
                 self.compute_S4_2d_rep()
             self.all_data = self.get_all_data()[:, :2]
+            self.alternating_data = self.get_subset_of_data([i for i in range(self.order) if self.signature(i)==1])[:, :2]
             self.compute_trace_tensor_cubes()
 
     def idx_to_perm(self, x):
@@ -150,7 +203,14 @@ class SymmetricGroup(Group):
 
     def signature(self, x):
         return self.idx_to_perm(x).signature()
-        
+    
+    def compute_signatures(self):
+        self.signatures = torch.tensor([self.signature(i) for i in range(self.order)]).cuda()
+    
+    
+
+    # representations
+
     def compute_natural_rep(self):
         idx = list(np.linspace(0, self.index-1, self.index))
         self.natural_reps = torch.zeros(self.order, self.index, self.index).cuda()
@@ -245,16 +305,16 @@ class SymmetricGroup(Group):
         #self.natural_trace_tensor_cubes = self.compute_trace_tensor_cube(self.all_data, self.natural_rep) 
         #self.natural_trace_tensor_cubes -= self.natural_trace_tensor_cubes.mean(-1)
         self.standard_trace_tensor_cubes = self.compute_trace_tensor_cube(self.all_data, self.standard_reps, 'standard')
-        self.standard_trace_tensor_cubes -= self.standard_trace_tensor_cubes.mean(-1)
+        self.standard_trace_tensor_cubes -= self.standard_trace_tensor_cubes.mean(-1, keepdim=True)
         self.standard_sign_trace_tensor_cubes = self.compute_trace_tensor_cube(self.all_data, self.standard_sign_reps, 'standard_sign')
-        self.standard_sign_trace_tensor_cubes -= self.standard_sign_trace_tensor_cubes.mean(-1)
+        self.standard_sign_trace_tensor_cubes -= self.standard_sign_trace_tensor_cubes.mean(-1, keepdim=True)
         self.sign_trace_tensor_cubes = self.compute_trace_tensor_cube(self.all_data, self.sign_reps, 'sign')
-        self.sign_trace_tensor_cubes -= self.sign_trace_tensor_cubes.mean(-1)
+        self.sign_trace_tensor_cubes -= self.sign_trace_tensor_cubes.mean(-1, keepdim=True)
         self.trivial_trace_tensor_cubes = self.compute_trace_tensor_cube(self.all_data, self.trivial_reps, 'trivial')
-        self.trivial_trace_tensor_cubes -= self.trivial_trace_tensor_cubes.mean(-1)
+        self.trivial_trace_tensor_cubes -= self.trivial_trace_tensor_cubes.mean(-1, keepdim=True)
         if self.index == 4:
             self.S4_2d_trace_tensor_cubes = self.compute_trace_tensor_cube(self.all_data, self.S4_2d_reps, 's4_2d')
-            self.S4_2d_trace_tensor_cubes -= self.S4_2d_trace_tensor_cubes.mean(-1)
+            self.S4_2d_trace_tensor_cubes -= self.S4_2d_trace_tensor_cubes.mean(-1, keepdim=True)
 
 
     

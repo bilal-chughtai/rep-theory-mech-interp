@@ -2,14 +2,14 @@
     "model": "OneLayerMLP",
     "group": "SymmetricGroup",
     "group_parameter": 4,
-    "seed": 4,
+    "seed": 1,
     "frac_train" : 0.5,
     "layers": {
-        "embed_dim": 256,
-        "hidden_dim": 128
+        "embed_dim": 128,
+        "hidden_dim": 64
     },
     "lr" : 1e-3,
-    "weight_decay" : 0.7, 
+    "weight_decay" : 2, 
     "num_epochs" : 400000,
     "metrics": {
         "class": "SymmetricMetrics"
