@@ -4,6 +4,7 @@ from utils.plotting import *
 from sympy.combinatorics.named_groups import SymmetricGroup as sympySG
 from sympy.combinatorics import Permutation
 import math
+from tqdm import tqdm
 
 
 class Group:
@@ -18,6 +19,7 @@ class Group:
         self.order = order 
         self.fourier_order = fourier_order  
         self.compute_multiplication_table()
+        self.compute_inverses()
         #self.compute_conjugacy_classes()
         #self.compute_element_orders()
 
@@ -25,14 +27,26 @@ class Group:
         raise NotImplementedError
 
     def inverse(self, x):
-        return torch.argmin(self.multiplication_table[x])
+        return (self.multiplication_table[x, :] == self.identity).nonzero().item()
     
     def compute_multiplication_table(self):
+
+        print('Computing multiplication table')
+        filename = f'../utils/cache/S{self.index}_mult_table.pt'
+
+        if os.path.exists(filename):
+            print('Loading from file')
+            self.multiplication_table = torch.load(filename)
+            return
+
         table = torch.zeros((self.order, self.order), dtype=torch.int64)
-        for i in range(self.order):
+        for i in tqdm(range(self.order)):
             for j in range(self.order):
                 table[i, j] = self.compose(i, j)
         self.multiplication_table = table
+
+        f = open(filename, 'wb')
+        torch.save(table, f)
     
     def get_all_data(self, shuffle_seed=False):
         data=torch.zeros((self.order*self.order, 3), dtype=torch.int64)
@@ -78,24 +92,21 @@ class Group:
             self.conjugacy_classes.append(current_set)
     
     def compute_element_orders(self):
-        # this doesnt work for S_5 as element 0 isnt identity
         orders = []
         for i in range(1):
             print(i)
             current = i
             order = 1
-            while current != 0:
-                print(current)
+            while current != self.identity:
                 current = self.multiplication_table[current, i].item()
                 order += 1
             orders.append(order)
         self.orders = orders
 
-    
-    
-
-
-
+    def compute_inverses(self):
+        self.inverses = torch.zeros(self.order, dtype=torch.int64)
+        for i in range(self.order):
+            self.inverses[i] = self.inverse(i)
 
     # Fourier basis for cylic-y groups. Should refactor into a different parent class eventually.
     def compute_fourier_basis(self):
@@ -128,16 +139,14 @@ class Group:
 
 class CyclicGroup(Group):
     def __init__(self, index, init_all):
-        super().__init__(index = index, order = index, fourier_order = index//2+1)        
+        super().__init__(index = index, order = index, fourier_order = index//2+1)
+        self.identity = 0  
         if init_all:
             self.compute_fourier_basis()
 
     def compose(self, x, y):
         return (x+y)%self.order
 
-    def inverse(self, x):
-        return -x%self.order
-        
 
 class DihedralGroup(Group):
     """
@@ -147,6 +156,7 @@ class DihedralGroup(Group):
     def __init__(self, index):
         super().__init__(index = index, order = 2*index, fourier_order = index//2+1)        
         self.compute_fourier_basis()
+        self.identity = 0
 
     def idx_to_cpts(self, x):
         r = x % self.index
@@ -175,6 +185,7 @@ class SymmetricGroup(Group):
     def __init__(self, index, init_all):
         self.G = sympySG(index)
         self.order = math.factorial(index)
+        self.identity = [i for i in range(self.order) if self.idx_to_perm(i).order() == 1][0]
         super().__init__(index = index, order = self.order, fourier_order = None)
         self.compute_signatures()
         if init_all:
@@ -216,7 +227,6 @@ class SymmetricGroup(Group):
         self.natural_reps = torch.zeros(self.order, self.index, self.index).cuda()
         for x in range(self.order):
             self.natural_reps[x, idx, self.idx_to_perm(x)(idx)] = 1
-        self.natural_reps.cuda()
         self.natural_reps_orth = self.natural_reps.reshape(self.order, self.index*self.index)
         self.natural_reps_orth = torch.linalg.qr(self.natural_reps_orth)[0]
 
@@ -284,18 +294,14 @@ class SymmetricGroup(Group):
             return torch.load(filename)
         N = all_data.shape[0]
         t = torch.zeros((self.order*self.order, self.order), dtype=torch.float).cuda()
-        for i in range(N):
-            if i%1000 == 0:
-                print(f'{i} / {N}')
+        for i in tqdm(range(N)):
             x = all_data[i, 0]
-            x_rep = rep[x.item()]
             y = all_data[i, 1]
-            y_rep = rep[y.item()]
-            temp = x_rep.mm(y_rep)
+            xy = self.multiplication_table[x, y]
             for z_idx in range(self.order):
-                z_rep = rep[z_idx]
-                t[i, z_idx] = torch.trace(temp.mm(z_rep.inverse()))
-        t = t.reshape(self.order, self.order, self.order).cuda()
+                xyz = self.multiplication_table[xy, self.inverses[z_idx]]
+                t[i, z_idx] = torch.trace(rep[xyz])
+        t = t.reshape(self.order, self.order, self.order)
         f = open(filename, 'wb')
         torch.save(t, f)
         return t
@@ -315,6 +321,33 @@ class SymmetricGroup(Group):
         if self.index == 4:
             self.S4_2d_trace_tensor_cubes = self.compute_trace_tensor_cube(self.all_data, self.S4_2d_reps, 's4_2d')
             self.S4_2d_trace_tensor_cubes -= self.S4_2d_trace_tensor_cubes.mean(-1, keepdim=True)
+
+    def compute_inverse_reps(self):
+        self.standard_inverse_reps = self.compute_inverse_rep(self.standard_reps)
+        self.standard_inverse_reps_orth = self.standard_inverse_reps.reshape(self.order, (self.index-1)*(self.index-1))
+        self.standard_inverse_reps_orth = torch.linalg.qr(self.standard_inverse_reps_orth)[0]
+
+        self.standard_sign_inverse_reps = self.compute_inverse_rep(self.standard_sign_reps)
+        self.standard_sign_inverse_reps_orth = self.standard_sign_inverse_reps.reshape(self.order, (self.index-1)*(self.index-1))
+        self.standard_sign_inverse_reps_orth = torch.linalg.qr(self.standard_sign_inverse_reps_orth)[0]
+
+        self.sign_inverse_reps = self.compute_inverse_rep(self.sign_reps)
+        self.sign_inverse_reps_orth = self.sign_inverse_reps.reshape(self.order, 1)
+        self.sign_inverse_reps_orth = torch.linalg.qr(self.sign_inverse_reps_orth)[0]
+
+        self.trivial_inverse_reps = self.compute_inverse_rep(self.trivial_reps)
+        self.trivial_inverse_reps_orth = self.trivial_inverse_reps.reshape(self.order, 1)
+        self.trivial_inverse_reps_orth = torch.linalg.qr(self.trivial_inverse_reps_orth)[0]
+
+        if self.index == 4:
+            self.S4_2d_inverse_reps = self.compute_inverse_rep(self.S4_2d_reps)
+            self.S4_2d_inverse_reps_orth = self.S4_2d_inverse_reps.reshape(self.order, 4)
+            self.S4_2d_inverse_reps_orth = torch.linalg.qr(self.S4_2d_inverse_reps_orth)[0]
+    
+
+    def compute_inverse_rep(self, rep):
+        return rep[self.inverses]
+
 
 
     

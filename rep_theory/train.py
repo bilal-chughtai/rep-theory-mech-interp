@@ -24,7 +24,7 @@ else:
 
 track_metrics = True
 
-task_dir = "1L_MLP_sym_S5"
+task_dir = "1L_MLP_sym_S6"
 
 print('Loading cfg...')
 seed, frac_train, layers, lr, group_param, weight_decay, num_epochs, group_type, architecture_type, metric_cfg, metric_obj = load_cfg(task_dir)
