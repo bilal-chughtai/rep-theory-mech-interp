@@ -31,11 +31,11 @@ class Group:
     
     def compute_multiplication_table(self):
 
-        print('Computing multiplication table')
+        print('Computing multiplication table...')
         filename = f'../utils/cache/S{self.index}_mult_table.pt'
 
         if os.path.exists(filename):
-            print('Loading from file')
+            print('... loading from file')
             self.multiplication_table = torch.load(filename)
             return
 
@@ -261,10 +261,9 @@ class SymmetricGroup(Group):
 
 
     def compute_sign_rep(self):
-        self.sign_reps = torch.zeros(self.order, 1, 1)
+        self.sign_reps = torch.zeros(self.order, 1, 1).cuda()
         for i in range(self.order):
             self.sign_reps[i, 0, 0] = self.signature(i)
-        self.sign_reps = torch.tensor(self.sign_reps).cuda()
         self.sign_reps_orth = self.sign_reps.reshape(self.order, 1)
 
     def compute_S4_2d_rep(self):
@@ -290,7 +289,7 @@ class SymmetricGroup(Group):
         print(f'Computing trace tensor cube for {rep_name} representation')
         filename = f'../utils/cache/S{self.index}_{rep_name}_trace_tensor_cube.pt'
         if os.path.exists(filename):
-            print('Loading from file')
+            print('... loading from file')
             return torch.load(filename)
         N = all_data.shape[0]
         t = torch.zeros((self.order*self.order, self.order), dtype=torch.float).cuda()

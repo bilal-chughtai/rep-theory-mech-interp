@@ -22,7 +22,7 @@ if torch.cuda.is_available:
 else:
   print('CUDA not available!')
 
-track_metrics = True
+track_metrics = False
 
 task_dir = "1L_MLP_sym_S6"
 
@@ -56,27 +56,37 @@ test_accs = []
 print('Initializing model...')
 model = architecture_type(layers, group.order, seed)
 model.cuda()
-metrics = metric_obj(group, True, True, train_labels, test_data, test_labels)
+metrics = metric_obj(group, True, track_metrics, train_labels, test_data, test_labels)
 optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
 
-print('Training...')
-for epoch in tqdm(range(num_epochs)):
-    train_logits = model(train_data)
-    train_loss = loss_fn(train_logits, train_labels)
-    train_loss.backward()
-    optimizer.step()
-    optimizer.zero_grad()
-    train_losses.append(train_loss.item())
-    with torch.inference_mode():
-        metric = metrics.get_metrics(model, train_logits, train_loss)
-        test_losses.append(metric['test_loss'])
-        train_accs.append(metric['train_acc'])
-        test_accs.append(metric['test_acc'])
-        wandb.log(metric)
 
-    if epoch%1000 == 0:
-        print(f"Epoch:{epoch}, Train: L: {train_losses[-1]:.6f} A: {train_accs[-1]*100:.4f}%, Test: L: {test_losses[-1]:.6f} A: {test_accs[-1]*100:.4f}%")
+def cleanup():
+    lines([train_losses, test_losses], log_y=True, labels=['train loss', 'test loss'], save=f"{task_dir}/loss.png")
+    lines([train_accs, test_accs], log_y=False, labels=['train acc', 'test acc'], save=f"{task_dir}/acc.png")
+    torch.save(model.state_dict(), f"{task_dir}/model.pt")
 
-lines([train_losses, test_losses], log_y=True, labels=['train loss', 'test loss'], save=f"{task_dir}/loss.png")
-lines([train_accs, test_accs], log_y=False, labels=['train acc', 'test acc'], save=f"{task_dir}/acc.png")
-torch.save(model.state_dict(), f"{task_dir}/model.pt")
+
+try:
+    print('Training...')
+    for epoch in tqdm(range(num_epochs)):
+        train_logits = model(train_data)
+        train_loss = loss_fn(train_logits, train_labels)
+        train_loss.backward()
+        optimizer.step()
+        optimizer.zero_grad()
+        train_losses.append(train_loss.item())
+        with torch.inference_mode():
+            metric = metrics.get_metrics(model, train_logits, train_loss)
+            test_losses.append(metric['test_loss'])
+            train_accs.append(metric['train_acc'])
+            test_accs.append(metric['test_acc'])
+            wandb.log(metric)
+
+        if epoch%1000 == 0:
+            print(f"Epoch:{epoch}, Train: L: {train_losses[-1]:.6f} A: {train_accs[-1]*100:.4f}%, Test: L: {test_losses[-1]:.6f} A: {test_accs[-1]*100:.4f}%")
+    cleanup()
+
+except KeyboardInterrupt:
+    print('Interrupted...')
+    cleanup()
+    sys.exit(0)

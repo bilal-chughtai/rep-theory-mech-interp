@@ -65,7 +65,7 @@ class SymmetricMetrics(Metrics):
             metrics['percent_unembed_sign_rep'], metrics['unembed_percent_std_sign_rep'] = self.unembeddings_explained_by_rep(model, self.group.sign_reps_orth)
             metrics['percent_hidden_sign_rep'], metrics['hidden_percent_std_sign_rep'] = self.hidden_explained_by_rep(model, self.group.sign_reps)
 
-            metrics['logit_trivial_trace_similarity'] = self.logit_trace_similarity(all_logits, self.group.trivial_trace_tensor_cubes)
+            #metrics['logit_trivial_trace_similarity'] = self.logit_trace_similarity(all_logits, self.group.trivial_trace_tensor_cubes)
             #metrics['percent_embed_trivial_rep'],  metrics['norm_embed_trivial_rep'], metrics['embed_variance_trivial_rep']  = self.embeddings_explained_by_rep(model, self.group.trivial_reps_orth)
             metrics['percent_total_embed_trivial_rep'], metrics['total_embed_percent_std_trivial_rep'] = self.total_embeddings_explained_by_rep(model, self.group.trivial_reps_orth)
             metrics['percent_unembed_trivial_rep'], metrics['unembed_percent_std_trivial_rep'] = self.unembeddings_explained_by_rep(model, self.group.trivial_reps_orth)
