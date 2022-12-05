@@ -32,7 +32,6 @@ import copy
 # import comet_ml
 import itertools
 
-from easy_transformer.activation_cache import ActivationCache
 
 # %%
 # Define type aliases
@@ -284,7 +283,7 @@ class HookedRootModule(nn.Module):
             model_out.backward()
         
         if return_cache_object:
-            cache = ActivationCache(cache_dict, self)
+            cache = None
         else:
             cache = cache_dict
         

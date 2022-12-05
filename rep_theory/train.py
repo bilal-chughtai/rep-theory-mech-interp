@@ -22,7 +22,7 @@ if torch.cuda.is_available:
 else:
   print('CUDA not available!')
 
-track_metrics = False
+track_metrics = True
 
 task_dir = "1L_MLP_sym_S6"
 
