@@ -45,7 +45,7 @@ class BilinearNet(HookedRootModule):
         return out
 
 class OneLayerMLP(HookedRootModule):
-    def __init__(self, layers, n, seed=0):
+    def __init__(self, layers, n, seed=0, ):
         # embed_dim: dimension of the embedding
         # hidden : hidden dimension size
         # n : group order
@@ -54,6 +54,7 @@ class OneLayerMLP(HookedRootModule):
 
         embed_dim = layers['embed_dim']
         hidden = layers['hidden_dim']
+        self.relu_embed = layers['relu_embed']
 
         # xavier initialise parameters
         self.W_x = nn.Parameter(torch.randn(n, embed_dim)/np.sqrt(embed_dim))
@@ -61,6 +62,10 @@ class OneLayerMLP(HookedRootModule):
         self.W = nn.Parameter(torch.randn(2*embed_dim, hidden)/np.sqrt(2*embed_dim))
         self.relu = nn.ReLU()
         self.W_U = nn.Parameter(torch.randn(hidden, n)/np.sqrt(hidden))
+        if self.relu_embed:
+            self.relu_x = nn.ReLU()
+            self.relu_y = nn.ReLU()
+
 
         # hookpoints
         self.x_embed = HookPoint()
@@ -76,12 +81,17 @@ class OneLayerMLP(HookedRootModule):
     def forward(self, data):
         x = data[:, 0] # (batch)
         x_embed = self.x_embed(self.W_x[x]) # (batch, embed_dim)
+        if self.relu_embed:
+            x_embed = self.x_embed(self.relu_x(x_embed))
         y = data[:, 1] # (batch)
         y_embed = self.y_embed(self.W_y[y]) # (batch, embed_dim)
+        if self.relu_embed:
+            y_embed = self.y_embed(self.relu_y(y_embed))
         embed_stack = self.embed_stack(torch.hstack((x_embed, y_embed))) # (batch, 2*embed_dim)
         hidden = self.hidden(self.relu(embed_stack @ self.W)) # (batch, hidden)
         out = self.out(hidden @ self.W_U) # (batch, n)
         return out
+
 
 class BetterOneLayerMLP(HookedRootModule):
     def __init__(self, layers, n, seed=0):

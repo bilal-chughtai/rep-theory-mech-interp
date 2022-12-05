@@ -3,14 +3,14 @@
     "group": "SymmetricGroup",
     "group_parameter": 6,
     "seed": 1,
-    "frac_train" : 0.5,
+    "frac_train" : 0.3,
     "layers": {
         "embed_dim": 256,
         "hidden_dim": 128
     },
     "lr" : 1e-3,
-    "weight_decay" : 0.5,
-    "num_epochs" : 400000,
+    "weight_decay" : 1,
+    "num_epochs" : 100000,
     "metrics": {
         "class": "SymmetricMetrics"
     }

@@ -132,7 +132,8 @@ class Group:
     
     def compute_trivial_rep(self):
         self.trivial_reps = torch.ones(self.order, 1, 1).cuda()
-        self.trivial_reps_orth = self.trivial_reps.reshape(self.order, 1)
+        self.trivial_reps_orth = self.trivial_reps.reshape(self.order, -1)
+        self.trivial_reps_orth = torch.linalg.qr(self.trivial_reps_orth)[0]
 
     def trivial_rep(self, x):
         return self.trivial_reps[x]
@@ -264,7 +265,8 @@ class SymmetricGroup(Group):
         self.sign_reps = torch.zeros(self.order, 1, 1).cuda()
         for i in range(self.order):
             self.sign_reps[i, 0, 0] = self.signature(i)
-        self.sign_reps_orth = self.sign_reps.reshape(self.order, 1)
+        self.sign_reps_orth = self.sign_reps.reshape(self.order, -1)
+        self.sign_reps_orth = torch.linalg.qr(self.sign_reps_orth)[0]
 
     def compute_S4_2d_rep(self):
         # we just compute the representation here by multiplying out the representation on generators lol 

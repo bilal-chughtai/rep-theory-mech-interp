@@ -35,51 +35,60 @@ class Metrics():
 class SymmetricMetrics(Metrics):
     def __init__(self, group, training, track_metrics, train_labels=None, test_data=None, test_labels=None, cfg=None):
         super().__init__(group, training, track_metrics, train_labels, test_data, test_labels)
-        
+
+        self.reps = {
+            'trivial': self.group.trivial_reps,
+            'sign': self.group.sign_reps,
+            'standard': self.group.standard_reps,
+            'standard_sign': self.group.standard_sign_reps
+        }
+
+        self.rep_trace_tensor_cubes = {
+            'trivial': self.group.trivial_rep_trace_tensor_cubes,
+            'sign': self.group.sign_rep_trace_tensor_cubes,
+            'standard': self.group.standard_rep_trace_tensor_cubes,
+            'standard_sign': self.group.standard_sign_rep_trace_tensor_cubes
+        }
+
+        self.orth_reps = {
+            'trivial': self.group.trivial_reps_orth,
+            'sign': self.group.sign_reps_orth,
+            'standard': self.group.standard_reps_orth,
+            'standard_sign': self.group.standard_sign_reps_orth,
+        }
+
+
+
+        if self.group.index == 4:
+            self.reps['s4_2d'] = self.group.S4_2d_reps
+            self.orth_reps['s4_2d'] = self.group.S4_2d_reps_orth
+
+
     def get_metrics(self, model, train_logits=None, train_loss=None):
         metrics = {}
+
+
+
         if self.training:
             test_logits, all_logits = self.get_test_all_logits(model)
             metrics = self.get_standard_metrics(test_logits, train_logits, train_loss)
         else:
             all_logits = model(self.all_data)
+
+
+
         if self.track_metrics:
+
+            # losses
             metrics['alternating_loss'] = self.loss_on_alternating_group(model)
-            metrics['all_loss'] = self.loss_all(model)
+            metrics['all_loss'] = self.loss_all(all_logits)
 
-            metrics['logit_standard_trace_similarity'] = self.logit_trace_similarity(all_logits, self.group.standard_trace_tensor_cubes)
-            #metrics['percent_embed_standard_rep'], metrics['norm_embed_standard_rep'], metrics['embed_variance_standard_rep'] = self.embeddings_explained_by_rep(model, self.group.standard_reps_orth)
-            metrics['percent_total_embed_standard_rep'], metrics['total_embed_percent_std_standard_rep'] = self.total_embeddings_explained_by_rep(model, self.group.standard_reps_orth)
-            metrics['percent_unembed_standard_rep'], metrics['unembed_percent_std_standard_rep'] = self.unembeddings_explained_by_rep(model, self.group.standard_reps_orth)
-            metrics['percent_hidden_standard_rep'], metrics['hidden_percent_std_standard_rep'] = self.hidden_explained_by_rep(model, self.group.standard_reps)   
-
-            metrics['logit_standard_sign_trace_similarity'] = self.logit_trace_similarity(all_logits, self.group.standard_sign_trace_tensor_cubes)
-            #metrics['percent_embed_standard_sign_rep'], metrics['norm_embed_standard_sign_rep'], metrics['embed_variance_standard_sign_rep'] = self.embeddings_explained_by_rep(model, self.group.standard_sign_reps_orth)
-            metrics['percent_total_embed_standard_sign_rep'], metrics['total_embed_percent_std_standard_sign_rep'] = self.total_embeddings_explained_by_rep(model, self.group.standard_sign_reps_orth)
-            metrics['percent_unembed_standard_sign_rep'], metrics['unembed_percent_std_standard_sign_rep'] = self.unembeddings_explained_by_rep(model, self.group.standard_sign_reps_orth)
-            metrics['percent_hidden_standard_sign_rep'], metrics['hidden_percent_std_standard_sign_rep'] = self.hidden_explained_by_rep(model, self.group.standard_sign_reps)
-
-            metrics['logit_sign_trace_similarity'] = self.logit_trace_similarity(all_logits, self.group.sign_trace_tensor_cubes)
-            #metrics['percent_embed_sign_rep'], metrics['norm_embed_sign_rep'], metrics['embed_variance_sign_rep'] = self.embeddings_explained_by_rep(model, self.group.sign_reps_orth)
-            metrics['percent_total_embed_sign_rep'], metrics['total_embed_percent_std_sign_rep'] = self.total_embeddings_explained_by_rep(model, self.group.sign_reps_orth)
-            metrics['percent_unembed_sign_rep'], metrics['unembed_percent_std_sign_rep'] = self.unembeddings_explained_by_rep(model, self.group.sign_reps_orth)
-            metrics['percent_hidden_sign_rep'], metrics['hidden_percent_std_sign_rep'] = self.hidden_explained_by_rep(model, self.group.sign_reps)
-
-            #metrics['logit_trivial_trace_similarity'] = self.logit_trace_similarity(all_logits, self.group.trivial_trace_tensor_cubes)
-            #metrics['percent_embed_trivial_rep'],  metrics['norm_embed_trivial_rep'], metrics['embed_variance_trivial_rep']  = self.embeddings_explained_by_rep(model, self.group.trivial_reps_orth)
-            metrics['percent_total_embed_trivial_rep'], metrics['total_embed_percent_std_trivial_rep'] = self.total_embeddings_explained_by_rep(model, self.group.trivial_reps_orth)
-            metrics['percent_unembed_trivial_rep'], metrics['unembed_percent_std_trivial_rep'] = self.unembeddings_explained_by_rep(model, self.group.trivial_reps_orth)
-            metrics['percent_hidden_trivial_rep'], metrics['hidden_percent_std_trivial_rep'] = self.hidden_explained_by_rep(model, self.group.trivial_reps)
-            
-            
-            if self.group.index == 4:
-                metrics['logit_S4_2d_rep_trace_similarity'] = self.logit_trace_similarity(all_logits, self.group.S4_2d_trace_tensor_cubes)
-                #metrics['percent_embed_S4_2d_rep'],  metrics['norm_embed_S4_2d_rep'], metrics['embed_variance_S4_2d_rep'] = self.embeddings_explained_by_rep(model, self.group.S4_2d_reps_orth)
-                metrics['percent_total_embed_S4_2d_rep'], metrics['total_embed_percent_std_S4_2d_rep'] = self.total_embeddings_explained_by_rep(model, self.group.S4_2d_reps_orth)
-                metrics['percent_unembed_S4_2d_rep'], metrics['unembed_percent_std_S4_2d_rep'] = self.unembeddings_explained_by_rep(model, self.group.S4_2d_reps_orth)
-                metrics['percent_hidden_S4_2d_rep'],  metrics['hidden_percent_std_S4_2d_rep'] = self.hidden_explained_by_rep(model, self.group.S4_2d_reps)             
-            #metrics['logit_natural_trace_similarity'] = self.logit_trace_similarity(all_logits, self.group.natural_trace_tensor_cubes)
-            #metrics['percentage_embeddings_explained_by_natural_rep'] = self.percentage_embeddings_explained_by_rep(model, self.group.natural_reps_orth)
+            # reps
+            for rep_name in self.reps.keys():
+                metrics[f'logit_{rep_name}_trace_similarity'] = self.logit_trace_similarity(all_logits, self.rep_trace_tensor_cubes[rep_name])
+                metrics[f'percent_total_embed_{rep_name}_rep'] = self.percent_total_embed(all_logits, self.orth_reps[rep_name])
+                metrics[f'percent_unembed_{rep_name}_rep'] = self.percent_unembed(all_logits, self.orth_reps[rep_name])
+                metrics[f'percent_hidden_{rep_name}_rep'] = self.percent_hidden(all_logits, self.orth_reps[rep_name])
             
         return metrics
 
@@ -112,34 +121,37 @@ class SymmetricMetrics(Metrics):
             proj_U = P @ model.W_U.T 
             proj_U_square = proj_U.pow(2)
             conts[i] = proj_U_square.sum() / total_norm_U
-        conts = torch.tensor(conts)
         #assert(torch.allclose(P, P@P, atol=1e-6))
         #assert(torch.allclose(P, P.T, atol=1e-6))
         std = torch.std(conts)
         return conts.sum(), conts.std()
 
-    #def embeddings_explained_by_rep(self, model, orth_reps):
-        # DONT USE THIS
+    # def embeddings_explained_by_rep(self, model, orth_reps):
+    #     # same as above, but multiply out linear layers
+    #     dims = orth_reps.shape[1]
+    #     P = self.projection_matrix_general(orth_reps)
+    #     #assert(torch.allclose(P, P@P, atol=1e-6))
+    #     #assert(torch.allclose(P, P.T, atol=1e-6))
+    #     embed_dim = model.W_x.shape[1]
+    #     W_x = model.W_x 
+    #     W_y = model.W_y 
 
-     #   P = self.projection_matrix_general(orth_reps)
-        #assert(torch.allclose(P, P@P, atol=1e-6))
-        #assert(torch.allclose(P, P.T, atol=1e-6))
+    #     norm_x = W_x.pow(2).sum()
+    #     norm_y = W_y.pow(2).sum()
 
-      #  proj_a = P @ model.W_x
-       # proj_b = P @ model.W_y
-        #embed_num = proj_a.pow(2).sum() + proj_b.pow(2).sum()
-        #embed_den = model.W_x.pow(2).sum() + model.W_y.pow(2).sum()
-        #percent_embed = embed_num/embed_den
-        #std = torch.std(torch.stack((proj_a.pow(2), proj_b.pow(2))).sum(1)) # sum over rows should be similar if each rep direction is used
-        #std_mean = std/embed_num    
-        #return percent_embed, embed_num, std
+    #     conts = torch.zeros(dims).cuda()
+    #     for i in range(dims):
+    #         x = orth_reps[:, i].unsqueeze(-1)
+    #         P = self.projection_matrix_general(x)
+    #         proj_x = P @ W_x
+    #         proj_y = P @ W_y
+    #         conts[i] = (proj_x.pow(2).sum() + proj_y.pow(2).sum()) / (norm_x + norm_y)
 
-    def total_embeddings_explained_by_rep(self, model, orth_reps):
+    #     return conts.sum(), conts.std()
+
+    def total_embeddings_explained_by_rep(self, model, orth_rep):
         # same as above, but multiply out linear layers
-        dims = orth_reps.shape[1]
-        P = self.projection_matrix_general(orth_reps)
-        #assert(torch.allclose(P, P@P, atol=1e-6))
-        #assert(torch.allclose(P, P.T, atol=1e-6))
+        dims = orth_rep.shape[1]
         embed_dim = model.W_x.shape[1]
         total_W_x = model.W_x @ model.W[:embed_dim, :]
         total_W_y = model.W_y @ model.W[embed_dim:, :]
@@ -147,15 +159,13 @@ class SymmetricMetrics(Metrics):
         norm_x = total_W_x.pow(2).sum()
         norm_y = total_W_y.pow(2).sum()
 
-        conts = torch.zeros(dims).cuda()
-        for i in range(dims):
-            x = orth_reps[:, i].unsqueeze(-1)
-            P = self.projection_matrix_general(x)
-            proj_x = P @ total_W_x
-            proj_y = P @ total_W_y
-            conts[i] = (proj_x.pow(2).sum() + proj_y.pow(2).sum()) / (norm_x + norm_y)
+        coefs_x = orth_rep.T @ x_embed
+        coefs_y = orth_rep.T @ y_embed
 
-        return conts.sum(), conts.std()
+        conts_x = coefs_x.pow(2).sum(-1) / x_norm
+        conts_y = coefs_y.pow(2).sum(-1) / y_norm
+
+        return conts_x.sum(), conts_x.std(), conts_y.sum(), conts_y.std()
         
     def hidden_explained_by_rep(self, model, reps):
         hidden_reps_xy = reps[self.all_labels].reshape(self.group.order * self.group.order, -1)
@@ -184,9 +194,8 @@ class SymmetricMetrics(Metrics):
         alternating_loss = loss_fn(alternating_logits, alternating_labels).item()
         return alternating_loss
 
-    def loss_all(self, model):
-        logits = model(self.all_data)
-        loss = loss_fn(logits, self.all_labels).item()
+    def loss_all(self, all_logits):
+        loss = loss_fn(all_logits, self.all_labels).item()
         return loss
 
 
