@@ -371,14 +371,18 @@ class SymmetricGroup(Group):
         # natural rep isnt irreduible
         #self.natural_trace_tensor_cubes = self.compute_trace_tensor_cube(self.all_data, self.natural_rep) 
         #self.natural_trace_tensor_cubes -= self.natural_trace_tensor_cubes.mean(-1)
+
         self.standard_trace_tensor_cubes = self.compute_trace_tensor_cube(self.all_data, self.standard_reps, 'standard')
         self.standard_trace_tensor_cubes -= self.standard_trace_tensor_cubes.mean(-1, keepdim=True)
         self.standard_sign_trace_tensor_cubes = self.compute_trace_tensor_cube(self.all_data, self.standard_sign_reps, 'standard_sign')
         self.standard_sign_trace_tensor_cubes -= self.standard_sign_trace_tensor_cubes.mean(-1, keepdim=True)
         self.sign_trace_tensor_cubes = self.compute_trace_tensor_cube(self.all_data, self.sign_reps, 'sign')
         self.sign_trace_tensor_cubes -= self.sign_trace_tensor_cubes.mean(-1, keepdim=True)
-        self.trivial_trace_tensor_cubes = self.compute_trace_tensor_cube(self.all_data, self.trivial_reps, 'trivial')
-        self.trivial_trace_tensor_cubes -= self.trivial_trace_tensor_cubes.mean(-1, keepdim=True)
+
+        # trivial rep can't be useful
+        #self.trivial_trace_tensor_cubes = self.compute_trace_tensor_cube(self.all_data, self.trivial_reps, 'trivial')
+        #self.trivial_trace_tensor_cubes -= self.trivial_trace_tensor_cubes.mean(-1, keepdim=True)
+        
         if self.index == 4:
             self.S4_2d_trace_tensor_cubes = self.compute_trace_tensor_cube(self.all_data, self.S4_2d_reps, 's4_2d')
             self.S4_2d_trace_tensor_cubes -= self.S4_2d_trace_tensor_cubes.mean(-1, keepdim=True)
