@@ -37,29 +37,25 @@ class SymmetricMetrics(Metrics):
         super().__init__(group, training, track_metrics, train_labels, test_data, test_labels)
 
         self.reps = {
-            'trivial': self.group.trivial_reps,
             'sign': self.group.sign_reps,
             'standard': self.group.standard_reps,
             'standard_sign': self.group.standard_sign_reps
         }
 
         self.rep_trace_tensor_cubes = {
-            'trivial': self.group.trivial_trace_tensor_cubes,
             'sign': self.group.sign_trace_tensor_cubes,
             'standard': self.group.standard_trace_tensor_cubes,
             'standard_sign': self.group.standard_sign_trace_tensor_cubes
         }
 
         self.orth_reps = {
-            'trivial': self.group.trivial_reps_orth,
             'sign': self.group.sign_reps_orth,
             'standard': self.group.standard_reps_orth,
             'standard_sign': self.group.standard_sign_reps_orth,
         }
         
-        # need to seperately normalise these as not orthonormal by default
+        #need to seperately normalise these as not orthonormal by default
         self.hidden_reps_xy = {
-            'trivial': self.group.trivial_reps[self.all_labels].reshape(self.group.order*self.group.order, -1),
             'sign': self.group.sign_reps[self.all_labels].reshape(self.group.order*self.group.order, -1),
             'standard': self.group.standard_reps[self.all_labels].reshape(self.group.order*self.group.order, -1),
             'standard_sign': self.group.standard_sign_reps[self.all_labels].reshape(self.group.order*self.group.order, -1)
@@ -67,7 +63,6 @@ class SymmetricMetrics(Metrics):
 
         for key, value in self.hidden_reps_xy.items():
             self.hidden_reps_xy[key] = value / value.norm(dim=0, keepdim=True)
-
 
 
         if self.group.index == 4:
