@@ -73,6 +73,17 @@ class SymmetricMetrics(Metrics):
         if self.group.index == 4:
             self.reps['s4_2d'] = self.group.S4_2d_reps
             self.orth_reps['s4_2d'] = self.group.S4_2d_reps_orth
+            self.hidden_reps_xy['s4_2d'] = self.group.S4_2d_reps[self.all_labels].reshape(self.group.order*self.group.order, -1)
+        
+        if self.group.index == 6:
+            self.reps['s6_5d_a'] = self.group.S6_5d_a_reps
+            self.orth_reps['s6_5d_a'] = self.group.S6_5d_a_reps_orth
+            self.hidden_reps_xy['s6_5d_a'] = self.group.S6_5d_a_reps[self.all_labels].reshape(self.group.order*self.group.order, -1)
+
+            self.reps['s6_5d_b'] = self.group.S6_5d_b_reps
+            self.orth_reps['s6_5d_b'] = self.group.S6_5d_b_reps_orth
+            self.hidden_reps_xy['s6_5d_b'] = self.group.S6_5d_b_reps[self.all_labels].reshape(self.group.order*self.group.order, -1)
+            
 
 
     def get_metrics(self, model, train_logits=None, train_loss=None):

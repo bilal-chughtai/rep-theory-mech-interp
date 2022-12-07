@@ -271,7 +271,7 @@ class SymmetricGroup(Group):
     def compute_S4_2d_rep(self):
         # we just compute the representation here by multiplying out the representation on generators lol 
         # https://arxiv.org/pdf/1112.0687.pdf
-        generators = self.G.generators
+        # TODO: change this to sagemath generators
         rep = {}
         rep[Permutation(0, 1, 2, 3)] = torch.tensor([[-1, -1], [0, 1]]).float() #(0, 1, 2, 3)
         rep[Permutation(3, 2, 1, 0)] = rep[Permutation(0, 1, 2, 3)].inverse()
@@ -286,6 +286,66 @@ class SymmetricGroup(Group):
             self.S4_2d_reps[i] = result
         self.S4_2d_reps_orth = self.S4_2d_reps.reshape(self.order, 4)
         self.S4_2d_reps_orth = torch.linalg.qr(self.S4_2d_reps_orth)[0]
+
+    def compute_S6_5d_a_rep(self):
+        rep = {}
+
+        rep[Permutation(0, 1, 2, 3, 4, 5)] = torch.tensor(
+            [-1,  1, -1,  0,  0],
+            [ 0,  0,  0,  1, -1],
+            [ 0,  0,  1,  0, -1],
+            [ 0, -1,  1,  1, -1],
+            [ 0, -1,  1,  0, -1]).float() 
+
+        rep[Permutation(5, 4, 3, 2, 1, 0)] = rep[Permutation(0, 1, 2, 3, 4, 5)].inverse()
+
+        rep[Permutation(5)(0,1)] = torch.tensor(
+            [ 1,  0,  0,  0,  0],
+            [ 0,  1,  0,  0,  0],
+            [ 0,  0,  1,  0,  0],
+            [-1,  1,  0, -1,  0],
+            [-1,  0,  1,  0, -1],
+        ).float() #(0, 1)
+
+        self.S6_5d_a_reps = torch.zeros(self.order, 5, 5).cuda()
+        for i in range(self.order):
+            generator_product = self.G.generator_product(self.idx_to_perm(i), original=True)
+            result = torch.eye(5).float()
+            for g in generator_product:
+                result = result @ rep[g]
+            self.S6_5d_a_reps[i] = result
+        self.S6_5d_a_reps_orth = self.S6_5d_reps_a.reshape(self.order, 25)
+        self.S6_5d_a_reps_orth = torch.linalg.qr(self.S6_5d_a_reps_orth)[0]
+
+    def compute_S6_5d_b_rep(self):
+        rep = {}
+
+        rep[Permutation(0, 1, 2, 3, 4, 5)] = torch.tensor(
+            [ 1, -1, -1,  1,  0],
+            [ 0, -1, -1,  0,  1],
+            [ 0,  0, -1,  1,  0],
+            [ 0,  0, -1,  0,  1],
+            [ 0, -1, -1,  1,  1]).float() 
+
+        rep[Permutation(5, 4, 3, 2, 1, 0)] = rep[Permutation(0, 1, 2, 3, 4, 5)].inverse()
+
+        rep[Permutation(5)(0,1)] = torch.tensor(
+            [ 1,  0,  0,  0,  0]
+            [ 0,  1,  0,  0,  0]
+            [ 0,  0,  1,  0,  0]
+            [-1,  1,  0, -1,  0]
+            [-1,  0,  1,  0, -1],
+        ).float() #(0, 1)
+
+        self.S6_5d_b_reps = torch.zeros(self.order, 5, 5).cuda()
+        for i in range(self.order):
+            generator_product = self.G.generator_product(self.idx_to_perm(i), original=True)
+            result = torch.eye(5).float()
+            for g in generator_product:
+                result = result @ rep[g]
+            self.S6_5d_b_reps[i] = result
+        self.S6_5d_b_reps_orth = self.S6_5d_reps_b.reshape(self.order, 25)
+        self.S6_5d_b_reps_orth = torch.linalg.qr(self.S6_5d_b_reps_orth)[0]
 
     def compute_trace_tensor_cube(self, all_data, rep, rep_name):
         print(f'Computing trace tensor cube for {rep_name} representation')
@@ -322,6 +382,12 @@ class SymmetricGroup(Group):
         if self.index == 4:
             self.S4_2d_trace_tensor_cubes = self.compute_trace_tensor_cube(self.all_data, self.S4_2d_reps, 's4_2d')
             self.S4_2d_trace_tensor_cubes -= self.S4_2d_trace_tensor_cubes.mean(-1, keepdim=True)
+        if self.index == 6:
+            self.S6_5d_a_trace_tensor_cubes = self.compute_trace_tensor_cube(self.all_data, self.S6_5d_a_reps, 's6_5d_a')
+            self.S6_5d_a_trace_tensor_cubes -= self.S6_5d_a_trace_tensor_cubes.mean(-1, keepdim=True)
+            self.S6_5d_b_trace_tensor_cubes = self.compute_trace_tensor_cube(self.all_data, self.S6_5d_b_reps, 's6_5d_a')
+            self.S6_5d_b_trace_tensor_cubes -= self.S6_5d_b_trace_tensor_cubes.mean(-1, keepdim=True)
+
 
     def compute_inverse_reps(self):
         self.standard_inverse_reps = self.compute_inverse_rep(self.standard_reps)
@@ -344,6 +410,15 @@ class SymmetricGroup(Group):
             self.S4_2d_inverse_reps = self.compute_inverse_rep(self.S4_2d_reps)
             self.S4_2d_inverse_reps_orth = self.S4_2d_inverse_reps.reshape(self.order, 4)
             self.S4_2d_inverse_reps_orth = torch.linalg.qr(self.S4_2d_inverse_reps_orth)[0]
+
+        if self.index == 6:
+            self.S6_5d_a_inverse_reps = self.compute_inverse_rep(self.S6_4d_a_reps)
+            self.S6_5d_a_inverse_reps_orth = self.S6_5d_a_inverse_reps.reshape(self.order, 25)
+            self.S6_5d_a_inverse_reps_orth = torch.linalg.qr(self.S6_5d_a_inverse_reps_orth)[0]
+            self.S6_5d_b_inverse_reps = self.compute_inverse_rep(self.S6_4d_b_reps)
+            self.S6_5d_b_inverse_reps_orth = self.S6_5d_b_inverse_reps.reshape(self.order, 25)
+            self.S6_5d_b_inverse_reps_orth = torch.linalg.qr(self.S6_5d_b_inverse_reps_orth)[0]
+
     
 
     def compute_inverse_rep(self, rep):
