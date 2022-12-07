@@ -7,7 +7,7 @@
     "layers": {
         "embed_dim": 256,
         "hidden_dim": 128,
-        "relu_embed": true
+        "relu_embed": false
     },
     "lr" : 1e-3,
     "weight_decay" : 0.5,

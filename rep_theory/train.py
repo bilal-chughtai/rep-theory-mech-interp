@@ -26,6 +26,8 @@ track_metrics = True
 
 task_dir = "1L_MLP_sym_S5"
 
+print(f'Training {task_dir}')
+
 print('Loading cfg...')
 seed, frac_train, layers, lr, group_param, weight_decay, num_epochs, group_type, architecture_type, metric_cfg, metric_obj = load_cfg(task_dir)
 

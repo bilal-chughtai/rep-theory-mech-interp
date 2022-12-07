@@ -44,10 +44,10 @@ class SymmetricMetrics(Metrics):
         }
 
         self.rep_trace_tensor_cubes = {
-            'trivial': self.group.trivial_rep_trace_tensor_cubes,
-            'sign': self.group.sign_rep_trace_tensor_cubes,
-            'standard': self.group.standard_rep_trace_tensor_cubes,
-            'standard_sign': self.group.standard_sign_rep_trace_tensor_cubes
+            'trivial': self.group.trivial_trace_tensor_cubes,
+            'sign': self.group.sign_trace_tensor_cubes,
+            'standard': self.group.standard_trace_tensor_cubes,
+            'standard_sign': self.group.standard_sign_trace_tensor_cubes
         }
 
         self.orth_reps = {
@@ -56,6 +56,17 @@ class SymmetricMetrics(Metrics):
             'standard': self.group.standard_reps_orth,
             'standard_sign': self.group.standard_sign_reps_orth,
         }
+        
+        # need to seperately normalise these as not orthonormal by default
+        self.hidden_reps_xy = {
+            'trivial': self.group.trivial_reps[self.all_labels].reshape(self.group.order*self.group.order, -1),
+            'sign': self.group.sign_reps[self.all_labels].reshape(self.group.order*self.group.order, -1),
+            'standard': self.group.standard_reps[self.all_labels].reshape(self.group.order*self.group.order, -1),
+            'standard_sign': self.group.standard_sign_reps[self.all_labels].reshape(self.group.order*self.group.order, -1)
+        }
+
+        for key, value in self.hidden_reps_xy.items():
+            self.hidden_reps_xy[key] = value / value.norm(dim=0, keepdim=True)
 
 
 
@@ -67,28 +78,24 @@ class SymmetricMetrics(Metrics):
     def get_metrics(self, model, train_logits=None, train_loss=None):
         metrics = {}
 
-
-
         if self.training:
             test_logits, all_logits = self.get_test_all_logits(model)
             metrics = self.get_standard_metrics(test_logits, train_logits, train_loss)
         else:
             all_logits = model(self.all_data)
 
-
-
         if self.track_metrics:
 
             # losses
-            metrics['alternating_loss'] = self.loss_on_alternating_group(model)
+            # metrics['alternating_loss'] = self.loss_on_alternating_group(model)
             metrics['all_loss'] = self.loss_all(all_logits)
 
             # reps
             for rep_name in self.reps.keys():
-                metrics[f'logit_{rep_name}_trace_similarity'] = self.logit_trace_similarity(all_logits, self.rep_trace_tensor_cubes[rep_name])
-                metrics[f'percent_total_embed_{rep_name}_rep'] = self.percent_total_embed(all_logits, self.orth_reps[rep_name])
-                metrics[f'percent_unembed_{rep_name}_rep'] = self.percent_unembed(all_logits, self.orth_reps[rep_name])
-                metrics[f'percent_hidden_{rep_name}_rep'] = self.percent_hidden(all_logits, self.orth_reps[rep_name])
+                metrics[f'logit_{rep_name}_rep_trace_similarity'] = self.logit_trace_similarity(all_logits, self.rep_trace_tensor_cubes[rep_name])
+                metrics[f'percent_x_embed_{rep_name}_rep'], metrics[f'percent_std_x_embed_{rep_name}_rep'], metrics[f'percent_y_embed_{rep_name}_rep'], metrics[f'percent_std_y_embed_{rep_name}_rep']= self.percent_total_embed(model, self.orth_reps[rep_name])
+                metrics[f'percent_unembed_{rep_name}_rep'], metrics[f'percent_std_unembed_{rep_name}_rep']  = self.percent_unembed(model, self.orth_reps[rep_name])
+                metrics[f'percent_hidden_{rep_name}_rep'], metrics[f'percent_std_hidden_{rep_name}_rep'] = self.percent_hidden(model, self.hidden_reps_xy[rep_name])
             
         return metrics
 
@@ -100,89 +107,40 @@ class SymmetricMetrics(Metrics):
         sims = F.cosine_similarity(centred_logits, centred_trace, dim=-1)
         return sims.mean().item()
 
-    def projection_matrix_general(self, B):
-            """Compute the projection matrix onto the space spanned by the columns of `B`
-            Args:
-                B: ndarray of dimension (D, M), the basis for the subspace
-            
-            Returns:
-                P: the projection matrix
-            """
-            P = B @ (B.T @ B).inverse() @ B.T
-            return P
+    def percent_unembed(self, model, orth_rep):
+        norm_U = model.W_U.pow(2).sum()
+        coefs_U = orth_rep.T @ model.W_U.T
+        conts_U = coefs_U.pow(2).sum(-1) / norm_U
+        return conts_U.sum(), conts_U.std()
 
-    def unembeddings_explained_by_rep(self, model, orth_reps):
-        total_norm_U = model.W_U.pow(2).sum()
-        dims = orth_reps.shape[1]
-        conts = torch.zeros(dims).cuda()
-        for i in range(dims):
-            x = orth_reps[:, i].unsqueeze(-1)
-            P = self.projection_matrix_general(x)
-            proj_U = P @ model.W_U.T 
-            proj_U_square = proj_U.pow(2)
-            conts[i] = proj_U_square.sum() / total_norm_U
-        #assert(torch.allclose(P, P@P, atol=1e-6))
-        #assert(torch.allclose(P, P.T, atol=1e-6))
-        std = torch.std(conts)
-        return conts.sum(), conts.std()
-
-    # def embeddings_explained_by_rep(self, model, orth_reps):
-    #     # same as above, but multiply out linear layers
-    #     dims = orth_reps.shape[1]
-    #     P = self.projection_matrix_general(orth_reps)
-    #     #assert(torch.allclose(P, P@P, atol=1e-6))
-    #     #assert(torch.allclose(P, P.T, atol=1e-6))
-    #     embed_dim = model.W_x.shape[1]
-    #     W_x = model.W_x 
-    #     W_y = model.W_y 
-
-    #     norm_x = W_x.pow(2).sum()
-    #     norm_y = W_y.pow(2).sum()
-
-    #     conts = torch.zeros(dims).cuda()
-    #     for i in range(dims):
-    #         x = orth_reps[:, i].unsqueeze(-1)
-    #         P = self.projection_matrix_general(x)
-    #         proj_x = P @ W_x
-    #         proj_y = P @ W_y
-    #         conts[i] = (proj_x.pow(2).sum() + proj_y.pow(2).sum()) / (norm_x + norm_y)
-
-    #     return conts.sum(), conts.std()
-
-    def total_embeddings_explained_by_rep(self, model, orth_rep):
+    def percent_total_embed(self, model, orth_rep):
         # same as above, but multiply out linear layers
         dims = orth_rep.shape[1]
         embed_dim = model.W_x.shape[1]
-        total_W_x = model.W_x @ model.W[:embed_dim, :]
-        total_W_y = model.W_y @ model.W[embed_dim:, :]
+        x_embed = model.W_x @ model.W[:embed_dim, :]
+        y_embed = model.W_y @ model.W[embed_dim:, :]
 
-        norm_x = total_W_x.pow(2).sum()
-        norm_y = total_W_y.pow(2).sum()
+        norm_x = x_embed.pow(2).sum()
+        norm_y = y_embed.pow(2).sum()
 
         coefs_x = orth_rep.T @ x_embed
         coefs_y = orth_rep.T @ y_embed
 
-        conts_x = coefs_x.pow(2).sum(-1) / x_norm
-        conts_y = coefs_y.pow(2).sum(-1) / y_norm
+        conts_x = coefs_x.pow(2).sum(-1) / norm_x
+        conts_y = coefs_y.pow(2).sum(-1) / norm_y
 
         return conts_x.sum(), conts_x.std(), conts_y.sum(), conts_y.std()
         
-    def hidden_explained_by_rep(self, model, reps):
-        hidden_reps_xy = reps[self.all_labels].reshape(self.group.order * self.group.order, -1)
-        hidden_reps_xy = torch.linalg.qr(hidden_reps_xy)[0]
+    def percent_hidden(self, model, hidden_reps_xy):
         logits, activations = model.run_with_cache(self.all_data, return_cache_object=False)
-        hidden = activations['hidden'] - activations['hidden'].mean(0, keepdim=True) # center
-        total_norm = hidden.pow(2).sum()
+        hidden = activations['hidden'] # DONT CENTER - activations['hidden'].mean(0, keepdim=True) # center
+        hidden_norm = hidden.pow(2).sum()
 
-        dims = hidden_reps_xy.shape[1]
-        conts = torch.zeros(dims).cuda()
-        for i in range(dims):
-            x = hidden_reps_xy[:, i].unsqueeze(-1)
-            P = self.projection_matrix_general(x)
-            proj_hidden = P @ hidden 
-            conts[i] = proj_hidden.pow(2).sum() / total_norm
+        coefs_xy = hidden_reps_xy.T @ hidden
+        xy_conts = coefs_xy.pow(2).sum(-1) / hidden_norm
 
-        return conts.sum(), conts.std()
+
+        return xy_conts.sum(), xy_conts.std()
 
 
 
