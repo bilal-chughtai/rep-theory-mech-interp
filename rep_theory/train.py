@@ -24,7 +24,7 @@ else:
 
 track_metrics = True
 
-task_dir = "1L_MLP_sym_S5"
+task_dir = "1L_MLP_sym_S6"
 
 print(f'Training {task_dir}')
 
@@ -46,7 +46,9 @@ config = {
     "architecture_type": architecture_type    
 }
 
-wandb.init(project=task_dir, entity="bilal-experiments", config=config)
+wb_project_name = f'{group.__class__.__name__}RepTheory'
+
+wandb.init(project=wb_project_name, entity="bilal-experiments", config=config)
 
 train_data, test_data, train_labels, test_labels = generate_train_test_data(group, frac_train, seed)
 
