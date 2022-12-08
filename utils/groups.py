@@ -1,7 +1,7 @@
 import os
 import torch
 from utils.plotting import *
-from sympy.combinatorics.named_groups import SymmetricGroup as sympySG
+from sympy.combinatorics.named_groups import SymmetricGroup as SymPySymmetricGroup
 from sympy.combinatorics import Permutation
 import math
 from tqdm import tqdm
@@ -9,46 +9,81 @@ from tqdm import tqdm
 
 class Group:
     """
-    parent class for all groups
-    index: index over groups in family
-    order: size of the group
-    fourier_order: number of fourier components to use
+    Base class for groups.
     """
     def __init__(self, index, order, fourier_order):
+        """
+        Initialize a group, compute and store information about it.
+
+        Args:
+            index (int): Index of group in wider family.
+            order (int): Order of group (number of elements).
+            fourier_order (int): Number of fourier representations to compute.
+        """
         self.index = index
         self.order = order 
         self.fourier_order = fourier_order  
-        self.compute_multiplication_table()
-        self.compute_inverses()
+        self.multiplication_table = self.compute_multiplication_table()
+        self.inverses = self.compute_inverses()
         #self.compute_conjugacy_classes()
         #self.compute_element_orders()
 
     def compose(self, x, y):
+        """
+        Compose two elements of the group.
+
+        Args:
+            x (int): Index of left element
+            y (int): Index of right element
+
+        Raises:
+            NotImplementedError: Must be implemented by child class.
+        """
         raise NotImplementedError
 
     def inverse(self, x):
+        """
+        Compute the inverse of an element of the group.
+
+        Args:
+            x (int): Index of element to inverse
+
+        Returns:
+            int: Index of inverse element
+        """
         return (self.multiplication_table[x, :] == self.identity).nonzero().item()
     
     def compute_multiplication_table(self):
-
+        """
+        Compute the multiplication table of the group. Caches/loads from file if possible.
+        """
         print('Computing multiplication table...')
         filename = f'../utils/cache/S{self.index}_mult_table.pt'
 
         if os.path.exists(filename):
             print('... loading from file')
-            self.multiplication_table = torch.load(filename)
-            return
+            table = torch.load(filename)
+        else:
+            table = torch.zeros((self.order, self.order), dtype=torch.int64).cuda()
+            for i in tqdm(range(self.order)):
+                for j in range(self.order):
+                    table[i, j] = self.compose(i, j)
+            f = open(filename, 'wb')
+            torch.save(table, f)
+        return table
 
-        table = torch.zeros((self.order, self.order), dtype=torch.int64)
-        for i in tqdm(range(self.order)):
-            for j in range(self.order):
-                table[i, j] = self.compose(i, j)
-        self.multiplication_table = table
-
-        f = open(filename, 'wb')
-        torch.save(table, f)
+        
     
     def get_all_data(self, shuffle_seed=False):
+        """
+        Get's all data and labels for the pairwise composition task.
+
+        Args:
+            shuffle_seed (bool, optional): Shuffle data for training. Defaults to False.
+
+        Returns:
+            torch.tensor: Tensor of shape (order*order, 3) where each row is (x, y, x*y).
+        """
         data=torch.zeros((self.order*self.order, 3), dtype=torch.int64)
         for i in range(self.order):
             for j in range(self.order):
@@ -62,6 +97,18 @@ class Group:
         return data
     
     def get_subset_of_data(self, indices1, indices2 = 'default', shuffle_seed=False):
+        """
+        Gets a subset of data and labels for the pairwise composition task.
+        TODO: make this more efficient and combine with the above function
+
+        Args:
+            indices1 (_type_): _description_
+            indices2 (str, optional): _description_. Defaults to 'default'.
+            shuffle_seed (bool, optional): _description_. Defaults to False.
+
+        Returns:
+            _type_: _description_
+        """
         if indices2 == 'default':
             indices2 = indices1
         data=torch.zeros((len(indices1)*len(indices2), 3), dtype=torch.int64)
@@ -77,6 +124,9 @@ class Group:
         return data
     
     def compute_conjugacy_classes(self):
+        """
+        Computes the conjugacy classes of the group.
+        """
         self.conjugacy_classes = []
         seen = set()
         for i in range(self.order):
@@ -92,6 +142,9 @@ class Group:
             self.conjugacy_classes.append(current_set)
     
     def compute_element_orders(self):
+        """
+        Compute the order of each element of the group.
+        """
         orders = []
         for i in range(1):
             print(i)
@@ -104,9 +157,12 @@ class Group:
         self.orders = orders
 
     def compute_inverses(self):
-        self.inverses = torch.zeros(self.order, dtype=torch.int64)
+        inveress = torch.zeros(self.order, dtype=torch.int64)
         for i in range(self.order):
-            self.inverses[i] = self.inverse(i)
+            inverses[i] = self.inverse(i)
+        return inverses
+
+    # TODO: refactor this into a "CyclicRepresentation" class
 
     # Fourier basis for cylic-y groups. Should refactor into a different parent class eventually.
     def compute_fourier_basis(self):
@@ -130,38 +186,72 @@ class Group:
     def animate_fourier_basis(self):
         animate_lines(self.fourier_basis, snapshot_index=self.fourier_basis_names, snapshot='Fourier Component', title='Graphs of Fourier Components (Use Slider)')
     
-    def compute_trivial_rep(self):
-        self.trivial_reps = torch.ones(self.order, 1, 1).cuda()
-        self.trivial_reps_orth = self.trivial_reps.reshape(self.order, -1)
-        self.trivial_reps_orth = torch.linalg.qr(self.trivial_reps_orth)[0]
+    # def compute_trivial_rep(self):
+    #     self.trivial_reps = torch.ones(self.order, 1, 1).cuda()
+    #     self.trivial_reps_orth = self.trivial_reps.reshape(self.order, -1)
+    #     self.trivial_reps_orth = torch.linalg.qr(self.trivial_reps_orth)[0]
 
-    def trivial_rep(self, x):
-        return self.trivial_reps[x]
+    # def trivial_rep(self, x):
+    #     return self.trivial_reps[x]
 
 class CyclicGroup(Group):
-    def __init__(self, index, init_all):
+    """
+    Class for cyclic groups, i.e. the modular addition task.
+    """
+    def __init__(self, index, init_all=False):
+        """
+        Initiliazes a cyclic group of order index.
+
+        Args:
+            index (int): Index and order of the group.
+            init_all (bool, optional): If false, only calculate what is required to train. If true, calculate all other tensors needed to track metrics. Defaults to False.
+        """
         super().__init__(index = index, order = index, fourier_order = index//2+1)
         self.identity = 0  
         if init_all:
             self.compute_fourier_basis()
 
     def compose(self, x, y):
+        """
+        Compose two elements of the group.
+
+        Args:
+            x (int): Left index 
+            y (int): Right index
+
+        Returns:
+            int: index of composition of x and y
+        """
         return (x+y)%self.order
 
 
 class DihedralGroup(Group):
     """
-    Dihedral group of order 2*index. First index elements are rotations, second are reflections.
+    Dihedral group of order 2*index. First half of the elements are rotations, second are reflections. 
     i.e. indexed as [e, r, r^2, ..., r^p, s, rs, r^2s, ..., r^ps]
     """
     def __init__(self, index):
+        """
+        Initialise the group.
+
+        Args:
+            index (int): Index of the group. Order is 2*index.
+        """
         super().__init__(index = index, order = 2*index, fourier_order = index//2+1)        
         self.compute_fourier_basis()
         self.identity = 0
 
     def idx_to_cpts(self, x):
+        """
+        Convert an index to a tuple of (rotation, reflection) components.
+
+        Args:
+            x (int): index of element in group
+
+        Returns:
+            (int, int): tuple (r, s) where r \in [0, index-1] and s \in {0, 1}
+        """
         r = x % self.index
-        # this could be rewritten in a single line
         if x >= self.index: 
             s = 1
         else: 
@@ -169,9 +259,29 @@ class DihedralGroup(Group):
         return r, s
 
     def cpts_to_idx(self, r, s):
+        """
+        Convert a tupl of (rotation, reflection) components to an index.
+
+        Args:
+            r (int): rotation component \in [0, index-1]
+            s (int): reflection component \in {0, 1}
+
+        Returns:
+            int: index of element
+        """
         return r + s*self.index
 
     def compose(self, x, y):
+        """
+        Compose elements of the group by converting to components, composing, and converting back.
+
+        Args:
+            x (int): left index
+            y (int): right index
+
+        Returns:
+            int: composition index
+        """
         x_r, x_s = self.idx_to_cpts(x)
         y_r, y_s = self.idx_to_cpts(y)
         if x_s == 0:
@@ -183,256 +293,351 @@ class DihedralGroup(Group):
         return self.cpts_to_idx(z_r, z_s)
 
 class SymmetricGroup(Group):
-    def __init__(self, index, init_all):
-        self.G = sympySG(index)
+    """
+    Class for the symmetric group of order index.
+    """
+    def __init__(self, index, init_all=False):
+        """
+        Initialise the group. Optionally calculate all other tensors needed to track metrics.
+
+        Args:
+            index (int): Index of group in family of symmetric groups.
+            init_all (bool, optional): If false, only calculate what is required to train. If true, calculate all other tensors needed to track metrics. Defaults to False.
+        """
+
         self.order = math.factorial(index)
+
+        # use sympy to generate the group
+        self.G = SymPySymmetricGroup(index)
+
+        # hacky method to find the index of the identity element 
         self.identity = [i for i in range(self.order) if self.idx_to_perm(i).order() == 1][0]
+
+        # initialise parent class
         super().__init__(index = index, order = self.order, fourier_order = None)
-        self.compute_signatures()
+
+        # compute the signatures of the elements
+        self.signatures = self.compute_signatures()
+
+
         if init_all:
-            self.compute_natural_rep()
-            self.compute_standard_rep()
-            self.compute_standard_sign_rep()
-            self.compute_sign_rep()
-            #self.compute_trivial_rep()
-            if self.index == 4:
-                self.compute_S4_2d_rep()
-            if self.index == 6:
-                self.compute_S6_5d_a_rep()
-                self.compute_S6_5d_b_rep()
+
+            # get all data to compute metrics
             self.all_data = self.get_all_data()[:, :2]
             self.alternating_data = self.get_subset_of_data([i for i in range(self.order) if self.signature(i)==1])[:, :2]
-            self.compute_trace_tensor_cubes()
+
+            # parameters for representation initialisation
+            rep_params = {
+                'group_index': self.index,
+                'group_order': self.order,
+                'multiplication_table': self.multiplication_table,
+                'inverses': self.inverses,
+                'all_data': self.all_data,
+            }
+
+            # initialise representations
+            sign_rep = SignRepresentation([], **rep_params)
+            natural_rep = NaturalRepresentation([], **rep_params)
+            standard_rep = StandardRepresentation([natural_rep.rep], **rep_params)
+            standard_sign_rep = StandardSignRepresentation([standard_rep.rep, sign_rep.rep], **rep_params)
+
+            self.irreps = {
+                'sign': sign_rep,
+                'standard': standard_rep,
+                'standard_sign': standard_sign_rep,
+            }
+
+            if self.index == 4:
+
+                s4_2d_generators = {}
+                s4_2d_generators[Permutation(0, 1, 2, 3)] = torch.tensor([[-1, -1], [0, 1]]).float() 
+                s4_2d_generators[Permutation(3, 2, 1, 0)] = s4_2d_generators[Permutation(0, 1, 2, 3)].inverse()
+                s4_2d_generators[Permutation(3)(0,1)] = torch.tensor([[1, 0], [-1, -1]]).float() 
+                s4_2d_rep = S4_2d_Representation([s4_2d_generators, self.G], **rep_params)
+                self.irreps['s4_2d'] = s4_2d_rep
+            
+            if self.index == 6:
+                
+                # (3,3) specht rep
+                s6_5d_a_generators = {}
+                s6_5d_a_generators[Permutation(0, 1, 2, 3, 4, 5)] = torch.tensor([
+                    [-1,  1, -1,  0,  0],
+                    [ 0,  0,  0,  1, -1],
+                    [ 0,  0,  1,  0, -1],
+                    [ 0, -1,  1,  1, -1],
+                    [ 0, -1,  1,  0, -1]]).float() 
+                s6_5d_a_generators[Permutation(5, 4, 3, 2, 1, 0)] = s6_5d_a_generators[Permutation(0, 1, 2, 3, 4, 5)].inverse()
+                s6_5d_a_generators[Permutation(5)(0,1)] = torch.tensor([
+                    [ 1,  0,  0,  0,  0],
+                    [ 0,  1,  0,  0,  0],
+                    [ 0,  0,  1,  0,  0],
+                    [-1,  1,  0, -1,  0],
+                    [-1,  0,  1,  0, -1]],
+                ).float() 
+                s6_5d_a_rep = S6_5d_a_Representation([s6_5d_a_generators, self.G], **rep_params)
+                self.irreps['s6_5d_a'] = s6_5d_a_rep
+
+                # (2,2,2) specht rep
+                s6_5d_b_generators = {}
+                s6_5d_b_generators[Permutation(0, 1, 2, 3, 4, 5)] = torch.tensor([
+                    [ 1, -1, -1,  1,  0],
+                    [ 0, -1, -1,  0,  1],
+                    [ 0,  0, -1,  1,  0],
+                    [ 0,  0, -1,  0,  1],
+                    [ 0, -1, -1,  1,  1]]).float() 
+                s6_5d_b_generators[Permutation(5, 4, 3, 2, 1, 0)] = s6_5d_b_generators[Permutation(0, 1, 2, 3, 4, 5)].inverse()
+                s6_5d_b_generators[Permutation(5)(0,1)] = torch.tensor([
+                    [ 1,  0,  0,  0,  0],
+                    [ 0,  1,  0,  0,  0],
+                    [ 1,  0, -1,  0,  0],
+                    [ 0,  1,  0, -1,  0],
+                    [ 1,  1,  0,  0, -1]]
+                ).float() 
+                s6_5d_b_rep = S6_5d_b_Representation([s6_5d_b_generators, self.G], **rep_params)
+                self.irreps['s6_5d_b'] = s6_5d_b_rep
+
+
+
 
     def idx_to_perm(self, x):
+        """
+        Convert an index to a permutation.
+
+        Args:
+            x (int): index of element in group
+
+        Returns:
+            Permutation: permutation object from sympy
+        """
         return self.G._elements[x]
 
     def perm_to_idx(self, perm):
+        """
+        Converts a permutation to an index.
+
+        Args:
+            perm (Permutation): permutation object from sympy
+
+        Returns:
+            int: index of element in group
+        """
         return self.G._elements.index(perm)
 
     def compose(self, x, y):
+        """
+        Compose elements of the group by converting to permutations, composing, and converting back.
+
+        Args:
+            x (int): left index
+            y (int): right index
+
+        Returns:
+            int: index of composition
+        """
         return self.perm_to_idx(self.idx_to_perm(x) * self.idx_to_perm(y))
 
     def perm_order(self, x):
+        """
+        Gets the order of a permutation.
+
+        Args:
+            x (int): index of element
+
+        Returns:
+            int: order of permutation
+        """
         return self.idx_to_perm(x).order()
 
     def signature(self, x):
+        """
+        Gets the signature of a permutation.
+
+        Args:
+            x (int): index of element
+
+        Returns:
+            int: Integer \in {0, 1} representing the signature of the permutation.
+        """
         return self.idx_to_perm(x).signature()
     
     def compute_signatures(self):
-        self.signatures = torch.tensor([self.signature(i) for i in range(self.order)]).cuda()
+        """
+        Compute and store the signature of each element in the group.
+
+        Returns:
+            torch.tensor: tensor of signatures
+        """
+        signatures = torch.tensor([self.signature(i) for i in range(self.order)]).cuda()
+        return signatures
+
+
+class SymmetricRepresentation():
+    """
+    Base class for all representations of a symmetric group.
+    """
+
+    def __init__(self, compute_rep_params, index, order, multiplication_table, inverses):
+        """
+        Initialise the symmetric group representation.
+
+        Args:
+            compute_rep_params (tuple): representation specific parameters required for computing the representation
+            index (int): group index in family of symmetric groups
+            order (int): order of the group
+            multiplication_table (torch.tensor): square (group.order, group.order) tensor of group multiplication table 
+            inverses (torch.tensor): vector of group inverses
+        """
+
+        self.friendly_name = 'none'
+        self.dim = None
+        self.index = index
+        self.order = order
+        self.multiplication_table = multiplication_table
+        self.inverses = inverses
+
+        self.rep = self.compute_rep(*compute_rep_params)
+        self.orth_rep = self.compute_orth_rep(self.rep)
+
+        self.logit_trace_tensor_cube = self.compute_logit_trace_tensor_cube()
+
+        self.inverse_rep = self.compute_inverse_rep()
+        self.inverse_orth_rep = self.compute_orth_rep(self.inverse_rep)
+
+    def compute_rep():
+        """
+        Compute the representation. Must be implemented by child class.
+
+        Raises:
+            NotImplementedError
+        """
+        raise NotImplementedError
     
-    
+    def compute_orth_rep(rep):
+        """
+        Use QR decomposition to orthogonalise the representation but retain the subspace spanned by the columns. 
 
-    # representations
+        Args:
+            rep (torch.tensor): (group.order, dim^2) tensor of representation
 
-    def compute_natural_rep(self):
-        idx = list(np.linspace(0, self.index-1, self.index))
-        self.natural_reps = torch.zeros(self.order, self.index, self.index).cuda()
-        for x in range(self.order):
-            self.natural_reps[x, idx, self.idx_to_perm(x)(idx)] = 1
-        self.natural_reps_orth = self.natural_reps.reshape(self.order, self.index*self.index)
-        self.natural_reps_orth = torch.linalg.qr(self.natural_reps_orth)[0]
-
-
-    def compute_standard_rep(self):
-        self.standard_reps = []
-        basis_transform = torch.zeros(self.index, self.index).cuda()
-        for i in range(self.index-1):
-            basis_transform[i, i] = 1
-            basis_transform[i, i+1] = -1
-        basis_transform[self.index-1, self.index-1] = 1 #to make the transform non singular
-        for x in self.natural_reps:
-            temp = basis_transform @ x @ basis_transform.inverse()
-            self.standard_reps.append(temp[:self.index-1, :self.index-1])
-        self.standard_reps = torch.stack(self.standard_reps, dim=0).cuda()
-        temp = self.standard_reps.reshape(self.order, (self.index-1)*(self.index-1))
-        # to orthogonalise, can take the qr decomposition
-        # or can take svd and throw away the singular columns
-        # these give the same answer
-        # s, u, v = torch.linalg.svd(temp)
-        # self.standard_sign_reps_orth = u[:, :(self.index)*(self.index)]
-        self.standard_reps_orth = torch.linalg.qr(temp)[0]
+        Returns:
+            torch.tensor: (group.order, dim^2) tensor with orthonormal columns en
+        """
+        orth_rep = rep.reshape(self.order, self.dim * self.dim)
+        orth_rep = torch.linalg.qr(orth_rep)[0]
+        return orth_rep
 
 
-    def compute_standard_sign_rep(self):
-        self.standard_sign_reps = []
-        for i in range(self.standard_reps.shape[0]):
-            self.standard_sign_reps.append(self.signature(i)*self.standard_reps[i])
-        self.standard_sign_reps = torch.stack(self.standard_sign_reps, dim=0).cuda()
-        self.standard_sign_reps_orth = self.standard_sign_reps.reshape(self.order, (self.index-1)*(self.index-1))
-        self.standard_sign_reps_orth = torch.linalg.qr(self.standard_sign_reps_orth)[0]
+    def compute_logit_trace_tensor_cube(self):
+        """
+        Under the hypothesis, the network computes tr(\rho(x)\rho(y)\rho(z^-1)) for some representation \rho.
+        This function computes this trace tensor cube for a given representation, and returns this tensor, centred around 0 in the 
+        logit space.
 
-
-    def compute_sign_rep(self):
-        self.sign_reps = torch.zeros(self.order, 1, 1).cuda()
-        for i in range(self.order):
-            self.sign_reps[i, 0, 0] = self.signature(i)
-        self.sign_reps_orth = self.sign_reps.reshape(self.order, -1)
-        self.sign_reps_orth = torch.linalg.qr(self.sign_reps_orth)[0]
-
-    def compute_S4_2d_rep(self):
-        # we just compute the representation here by multiplying out the representation on generators lol 
-        # https://arxiv.org/pdf/1112.0687.pdf
-        # TODO: change this to sagemath generators
-        rep = {}
-        rep[Permutation(0, 1, 2, 3)] = torch.tensor([[-1, -1], [0, 1]]).float() #(0, 1, 2, 3)
-        rep[Permutation(3, 2, 1, 0)] = rep[Permutation(0, 1, 2, 3)].inverse()
-        rep[Permutation(3)(0,1)] = torch.tensor([[1, 0], [-1, -1]]).float() #(0, 1)
-
-        self.S4_2d_reps = torch.zeros(self.order, 2, 2).cuda()
-        for i in range(self.order):
-            generator_product = self.G.generator_product(self.idx_to_perm(i), original=True)
-            result = torch.eye(2).float()
-            for g in generator_product:
-                result = result @ rep[g]
-            self.S4_2d_reps[i] = result
-        self.S4_2d_reps_orth = self.S4_2d_reps.reshape(self.order, 4)
-        self.S4_2d_reps_orth = torch.linalg.qr(self.S4_2d_reps_orth)[0]
-
-    def compute_S6_5d_a_rep(self):
-        # (3,3) specht representation of S6
-        rep = {}
-
-        rep[Permutation(0, 1, 2, 3, 4, 5)] = torch.tensor([
-            [-1,  1, -1,  0,  0],
-            [ 0,  0,  0,  1, -1],
-            [ 0,  0,  1,  0, -1],
-            [ 0, -1,  1,  1, -1],
-            [ 0, -1,  1,  0, -1]]).float() 
-
-        rep[Permutation(5, 4, 3, 2, 1, 0)] = rep[Permutation(0, 1, 2, 3, 4, 5)].inverse()
-
-        rep[Permutation(5)(0,1)] = torch.tensor([
-            [ 1,  0,  0,  0,  0],
-            [ 0,  1,  0,  0,  0],
-            [ 0,  0,  1,  0,  0],
-            [-1,  1,  0, -1,  0],
-            [-1,  0,  1,  0, -1]],
-        ).float() #(0, 1)
-
-        self.S6_5d_a_reps = torch.zeros(self.order, 5, 5).cuda()
-        for i in range(self.order):
-            generator_product = self.G.generator_product(self.idx_to_perm(i), original=True)
-            result = torch.eye(5).float()
-            for g in generator_product:
-                result = result @ rep[g]
-            self.S6_5d_a_reps[i] = result
-        self.S6_5d_a_reps_orth = self.S6_5d_a_reps.reshape(self.order, 25)
-        self.S6_5d_a_reps_orth = torch.linalg.qr(self.S6_5d_a_reps_orth)[0]
-
-    def compute_S6_5d_b_rep(self):
-        # (2,2,2) specht representation of S6
-        rep = {}
-
-        rep[Permutation(0, 1, 2, 3, 4, 5)] = torch.tensor([
-            [ 1, -1, -1,  1,  0],
-            [ 0, -1, -1,  0,  1],
-            [ 0,  0, -1,  1,  0],
-            [ 0,  0, -1,  0,  1],
-            [ 0, -1, -1,  1,  1]]).float() 
-
-        rep[Permutation(5, 4, 3, 2, 1, 0)] = rep[Permutation(0, 1, 2, 3, 4, 5)].inverse()
-
-        rep[Permutation(5)(0,1)] = torch.tensor([
-            [ 1,  0,  0,  0,  0],
-            [ 0,  1,  0,  0,  0],
-            [ 1,  0, -1,  0,  0],
-            [ 0,  1,  0, -1,  0],
-            [ 1,  1,  0,  0, -1]]
-        ).float() #(0, 1)
-
-        self.S6_5d_b_reps = torch.zeros(self.order, 5, 5).cuda()
-        for i in range(self.order):
-            generator_product = self.G.generator_product(self.idx_to_perm(i), original=True)
-            result = torch.eye(5).float()
-            for g in generator_product:
-                result = result @ rep[g]
-            self.S6_5d_b_reps[i] = result
-        self.S6_5d_b_reps_orth = self.S6_5d_b_reps.reshape(self.order, 25)
-        self.S6_5d_b_reps_orth = torch.linalg.qr(self.S6_5d_b_reps_orth)[0]
-
-    def compute_trace_tensor_cube(self, all_data, rep, rep_name):
-        print(f'Computing trace tensor cube for {rep_name} representation')
-        filename = f'../utils/cache/S{self.index}_{rep_name}_trace_tensor_cube.pt'
+        Returns:
+            torch.tensor: (group.order^3) trace tensor cube
+        """
+        print(f'Computing trace tensor cube for {self.friendly_name} representation')
+        filename = f'../utils/cache/S{self.index}_{self.friendly_name}_trace_tensor_cube.pt'
         if os.path.exists(filename):
             print('... loading from file')
             return torch.load(filename)
         N = all_data.shape[0]
         t = torch.zeros((self.order*self.order, self.order), dtype=torch.float).cuda()
         for i in tqdm(range(N)):
-            x = all_data[i, 0]
-            y = all_data[i, 1]
+            x = self.all_data[i, 0]
+            y = self.all_data[i, 1]
             xy = self.multiplication_table[x, y]
             for z_idx in range(self.order):
                 xyz = self.multiplication_table[xy, self.inverses[z_idx]]
-                t[i, z_idx] = torch.trace(rep[xyz])
+                t[i, z_idx] = torch.trace(self.rep[xyz])
         t = t.reshape(self.order, self.order, self.order)
         f = open(filename, 'wb')
         torch.save(t, f)
-        return t
+        return t - t.mean(-1, keepdim=True)
+    
+    def compute_inverse_rep(self):
+        """
+        Compute the inverse representation.
 
-    def compute_trace_tensor_cubes(self):
-        # natural rep isnt irreduible
-        #self.natural_trace_tensor_cubes = self.compute_trace_tensor_cube(self.all_data, self.natural_rep) 
-        #self.natural_trace_tensor_cubes -= self.natural_trace_tensor_cubes.mean(-1)
+        Returns:
+            torch.tensor: (group.order, dim^2) tensor of inverse representations
+        """
+        return self.rep[self.inverses]
+    
 
-        self.standard_trace_tensor_cubes = self.compute_trace_tensor_cube(self.all_data, self.standard_reps, 'standard')
-        self.standard_trace_tensor_cubes -= self.standard_trace_tensor_cubes.mean(-1, keepdim=True)
-        self.standard_sign_trace_tensor_cubes = self.compute_trace_tensor_cube(self.all_data, self.standard_sign_reps, 'standard_sign')
-        self.standard_sign_trace_tensor_cubes -= self.standard_sign_trace_tensor_cubes.mean(-1, keepdim=True)
-        self.sign_trace_tensor_cubes = self.compute_trace_tensor_cube(self.all_data, self.sign_reps, 'sign')
-        self.sign_trace_tensor_cubes -= self.sign_trace_tensor_cubes.mean(-1, keepdim=True)
 
-        # trivial rep can't be useful
-        #self.trivial_trace_tensor_cubes = self.compute_trace_tensor_cube(self.all_data, self.trivial_reps, 'trivial')
-        #self.trivial_trace_tensor_cubes -= self.trivial_trace_tensor_cubes.mean(-1, keepdim=True)
+
+class NaturalRepresentation(SymmetricRepresentation):
+    def __init__(self, compute_rep_params, init_rep_params):
+        super().__init__(compute_rep_params, **init_rep_params)
+        self.friendly_name = 'natural'
+        self.dim = index
+    
+    def compute_rep(self):
+        idx = list(np.linspace(0, self.group_index-1, self.group_index))
+        rep = torch.zeros(self.order, self.group_index, self.group_index).cuda()
+        for x in range(self.order):
+            rep[x, idx, self.idx_to_perm(x)(idx)] = 1
+        return rep
+
+class StandardRepresentation(SymmetricRepresentation):
+    def __init__(self, compute_rep_params, init_rep_params):
+        super().__init__(compute_rep_params, **init_rep_params)
+        self.friendly_name = 'standard'
+        self.dim = self.index - 1
+    
+    def compute_rep(self, natural_reps):
+        rep = []
+        basis_transform = torch.zeros(self.index, self.index).cuda()
+        for i in range(self.index-1):
+            basis_transform[i, i] = 1
+            basis_transform[i, i+1] = -1
+        basis_transform[self.index-1, self.index-1] = 1 #to make the transform non singular
+        for x in natural_reps:
+            temp = basis_transform @ x @ basis_transform.inverse()
+            rep.append(temp[:self.index-1, :self.index-1])
+        rep = torch.stack(rep, dim=0).cuda()
+        return rep        
         
-        if self.index == 4:
-            self.S4_2d_trace_tensor_cubes = self.compute_trace_tensor_cube(self.all_data, self.S4_2d_reps, 's4_2d')
-            self.S4_2d_trace_tensor_cubes -= self.S4_2d_trace_tensor_cubes.mean(-1, keepdim=True)
-        if self.index == 6:
-            self.S6_5d_a_trace_tensor_cubes = self.compute_trace_tensor_cube(self.all_data, self.S6_5d_a_reps, 's6_5d_a')
-            self.S6_5d_a_trace_tensor_cubes -= self.S6_5d_a_trace_tensor_cubes.mean(-1, keepdim=True)
-            #self.S6_5d_b_trace_tensor_cubes = self.compute_trace_tensor_cube(self.all_data, self.S6_5d_b_reps, 's6_5d_b') temporary
-            #self.S6_5d_b_trace_tensor_cubes -= self.S6_5d_b_trace_tensor_cubes.mean(-1, keepdim=True)
+class SignRepresentation(SymmetricRepresentation):
+    def __init__(self, compute_rep_params, init_rep_params):
+        super().__init__(compute_rep_params, **init_rep_params)
+        self.friendly_name = 'sign'
+        self.dim = 1
 
+    def compute_rep(self, signatures):
+        rep = torch.zeros(self.order, 1, 1).cuda()
+        rep[:, 0, 0] = signatures
+        return rep
 
-    def compute_inverse_reps(self):
-        self.standard_inverse_reps = self.compute_inverse_rep(self.standard_reps)
-        self.standard_inverse_reps_orth = self.standard_inverse_reps.reshape(self.order, (self.index-1)*(self.index-1))
-        self.standard_inverse_reps_orth = torch.linalg.qr(self.standard_inverse_reps_orth)[0]
+class StandardSignRepresentation(SymmetricRepresentation):
+    def __init__(self, compute_rep_params, init_rep_params):
+        super().__init__(compute_rep_params, **init_rep_params)
+        self.friendly_name = 'standard_sign'
+        self.dim = self.index - 1
+        
 
-        self.standard_sign_inverse_reps = self.compute_inverse_rep(self.standard_sign_reps)
-        self.standard_sign_inverse_reps_orth = self.standard_sign_inverse_reps.reshape(self.order, (self.index-1)*(self.index-1))
-        self.standard_sign_inverse_reps_orth = torch.linalg.qr(self.standard_sign_inverse_reps_orth)[0]
+    def compute_rep(self, standard_reps, signatures):
+        rep = []
+        for i in range(standard_reps.shape[0]):
+            rep.append(signatures[i]*standard_reps[i])
+        rep = torch.stack(rep, dim=0).cuda()
+        return rep
 
-        self.sign_inverse_reps = self.compute_inverse_rep(self.sign_reps)
-        self.sign_inverse_reps_orth = self.sign_inverse_reps.reshape(self.order, 1)
-        self.sign_inverse_reps_orth = torch.linalg.qr(self.sign_inverse_reps_orth)[0]
+class SymmetricRepresentationFromGenerators():
+    def __init__(self, compute_rep_params, init_rep_params, name):
+        super().__init__(compute_rep_params, **init_rep_params)
+        self.friendly_name = 'from_generators'
 
-        #self.trivial_inverse_reps = self.compute_inverse_rep(self.trivial_reps)
-        #self.trivial_inverse_reps_orth = self.trivial_inverse_reps.reshape(self.order, 1)
-        #self.trivial_inverse_reps_orth = torch.linalg.qr(self.trivial_inverse_reps_orth)[0]
+        # TODO: make this less hacky
+        self.dim = compute_rep_params[0].values[0].shape[0] # hacky way to get the dimension of the representation
 
-        if self.index == 4:
-            self.S4_2d_inverse_reps = self.compute_inverse_rep(self.S4_2d_reps)
-            self.S4_2d_inverse_reps_orth = self.S4_2d_inverse_reps.reshape(self.order, 4)
-            self.S4_2d_inverse_reps_orth = torch.linalg.qr(self.S4_2d_inverse_reps_orth)[0]
-
-        if self.index == 6:
-            self.S6_5d_a_inverse_reps = self.compute_inverse_rep(self.S6_4d_a_reps)
-            self.S6_5d_a_inverse_reps_orth = self.S6_5d_a_inverse_reps.reshape(self.order, 25)
-            self.S6_5d_a_inverse_reps_orth = torch.linalg.qr(self.S6_5d_a_inverse_reps_orth)[0]
-            self.S6_5d_b_inverse_reps = self.compute_inverse_rep(self.S6_4d_b_reps)
-            self.S6_5d_b_inverse_reps_orth = self.S6_5d_b_inverse_reps.reshape(self.order, 25)
-            self.S6_5d_b_inverse_reps_orth = torch.linalg.qr(self.S6_5d_b_inverse_reps_orth)[0]
-
-    
-
-    def compute_inverse_rep(self, rep):
-        return rep[self.inverses]
-
-
-
-    
+    def compute_rep(self, generators, G):
+        rep = torch.zeros(self.order, self.dim, self.dim).cuda()
+        for i in range(self.order):
+            generator_product = self.G.generator_product(self.idx_to_perm(i), original=True)
+            result = torch.eye(self.dim).float().cuda()
+            for g in generator_product:
+                result = result @ self.generators[g]
+            reps[i] = result
+        return reps

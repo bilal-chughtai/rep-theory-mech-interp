@@ -36,53 +36,10 @@ class SymmetricMetrics(Metrics):
     def __init__(self, group, training, track_metrics, train_labels=None, test_data=None, test_labels=None, cfg=None):
         super().__init__(group, training, track_metrics, train_labels, test_data, test_labels)
 
-        self.reps = {
-            'sign': self.group.sign_reps,
-            'standard': self.group.standard_reps,
-            'standard_sign': self.group.standard_sign_reps
-        }
+        for rep_name in self.group.irreps.keys():
+            self.group.irreps[rep_name].hidden_reps_xy = self.group.irreps[rep_name].rep[self.all_labels].reshape(self.group.order*self.group.order, -1)
+            self.group.irreps[rep_name].hidden_reps_xy_orth = torch.qr(self.group.irreps[rep_name].hidden_reps_xy)[0]
 
-        self.rep_trace_tensor_cubes = {
-            'sign': self.group.sign_trace_tensor_cubes,
-            'standard': self.group.standard_trace_tensor_cubes,
-            'standard_sign': self.group.standard_sign_trace_tensor_cubes
-        }
-
-        self.orth_reps = {
-            'sign': self.group.sign_reps_orth,
-            'standard': self.group.standard_reps_orth,
-            'standard_sign': self.group.standard_sign_reps_orth,
-        }
-        
-        #need to orthogonalise these
-        self.hidden_reps_xy = {
-            'sign': self.group.sign_reps[self.all_labels].reshape(self.group.order*self.group.order, -1),
-            'standard': self.group.standard_reps[self.all_labels].reshape(self.group.order*self.group.order, -1),
-            'standard_sign': self.group.standard_sign_reps[self.all_labels].reshape(self.group.order*self.group.order, -1)
-        }
-
-
-
-
-        if self.group.index == 4:
-            self.reps['s4_2d'] = self.group.S4_2d_reps
-            self.orth_reps['s4_2d'] = self.group.S4_2d_reps_orth
-            self.hidden_reps_xy['s4_2d'] = self.group.S4_2d_reps[self.all_labels].reshape(self.group.order*self.group.order, -1)
-        
-        if self.group.index == 6:
-            self.reps['s6_5d_a'] = self.group.S6_5d_a_reps
-            self.orth_reps['s6_5d_a'] = self.group.S6_5d_a_reps_orth
-            self.hidden_reps_xy['s6_5d_a'] = self.group.S6_5d_a_reps[self.all_labels].reshape(self.group.order*self.group.order, -1)
-            self.rep_trace_tensor_cubes['s6_5d_a'] = self.group.S6_5d_a_trace_tensor_cubes
-
-            self.reps['s6_5d_b'] = self.group.S6_5d_b_reps
-            self.orth_reps['s6_5d_b'] = self.group.S6_5d_b_reps_orth
-            self.hidden_reps_xy['s6_5d_b'] = self.group.S6_5d_b_reps[self.all_labels].reshape(self.group.order*self.group.order, -1)
-            #self.rep_trace_tensor_cubes['s6_5d_b'] = self.group.S6_5d_b_trace_tensor_cubes
-            
-        self.hidden_reps_xy_orth = {}
-        for key, value in self.hidden_reps_xy.items():
-            self.hidden_reps_xy_orth[key] = torch.qr(self.hidden_reps_xy[key])[0]
 
     def get_metrics(self, model, train_logits=None, train_loss=None):
         metrics = {}
@@ -100,11 +57,10 @@ class SymmetricMetrics(Metrics):
             metrics['all_loss'] = self.loss_all(all_logits)
 
             # reps
-            for rep_name in self.reps.keys():
-                if rep_name != 's6_5d_b': #hacky fix while we dont have the trace tensor cube cached for this
-                    metrics[f'logit_{rep_name}_rep_trace_similarity'] = self.logit_trace_similarity(all_logits, self.rep_trace_tensor_cubes[rep_name])
-                metrics[f'percent_x_embed_{rep_name}_rep'], metrics[f'percent_std_x_embed_{rep_name}_rep'], metrics[f'percent_y_embed_{rep_name}_rep'], metrics[f'percent_std_y_embed_{rep_name}_rep']= self.percent_total_embed(model, self.orth_reps[rep_name])
-                metrics[f'percent_unembed_{rep_name}_rep'], metrics[f'percent_std_unembed_{rep_name}_rep']  = self.percent_unembed(model, self.orth_reps[rep_name])
+            for rep_name in self.group.irreps.keys():
+                metrics[f'logit_{rep_name}_rep_trace_similarity'] = self.logit_trace_similarity(all_logits, self.group.irreps[rep_name].logit_trace_tensor_cube)
+                metrics[f'percent_x_embed_{rep_name}_rep'], metrics[f'percent_std_x_embed_{rep_name}_rep'], metrics[f'percent_y_embed_{rep_name}_rep'], metrics[f'percent_std_y_embed_{rep_name}_rep']= self.percent_total_embed(model, self.group.irreps[rep_name].orth_reps)
+                metrics[f'percent_unembed_{rep_name}_rep'], metrics[f'percent_std_unembed_{rep_name}_rep']  = self.percent_unembed(model, self.group.irreps[rep_name].orth_reps)
                 metrics[f'percent_hidden_{rep_name}_rep'], metrics[f'percent_std_hidden_{rep_name}_rep'] = self.percent_hidden(model, self.hidden_reps_xy_orth[rep_name])
             
         return metrics
@@ -149,9 +105,7 @@ class SymmetricMetrics(Metrics):
         coefs_xy = hidden_reps_xy.T @ hidden
         xy_conts = coefs_xy.pow(2).sum(-1) / hidden_norm
 
-
         return xy_conts.sum(), xy_conts.std()
-
 
 
     def loss_on_alternating_group(self, model):
@@ -180,8 +134,8 @@ class CyclicMetrics(Metrics):
         test_logits, all_logits = self.get_test_all_logits(model)
         metrics = self.get_standard_metrics(test_logits, train_logits, train_loss)
         if self.track_metrics:
-           embedding_percent_list, metrics['percent_embeddings_explained_by_key_freqs'] = self.percentage_embeddings_explained_by_key_freqs(model, self.key_freqs)
-           for i, freq in enumerate(self.key_freqs):
+            embedding_percent_list, metrics['percent_embeddings_explained_by_key_freqs'] = self.percentage_embeddings_explained_by_key_freqs(model, self.key_freqs)
+            for i, freq in enumerate(self.key_freqs):
                 metrics[f'percent_embeddings_explained_by_freq_{freq}'] = embedding_percent_list[i]
         return metrics
 
