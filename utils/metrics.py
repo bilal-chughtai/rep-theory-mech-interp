@@ -54,15 +54,16 @@ class SymmetricMetrics(Metrics):
             'standard_sign': self.group.standard_sign_reps_orth,
         }
         
-        #need to seperately normalise these as not orthonormal by default
+        #need to orthogonalise these
         self.hidden_reps_xy = {
             'sign': self.group.sign_reps[self.all_labels].reshape(self.group.order*self.group.order, -1),
             'standard': self.group.standard_reps[self.all_labels].reshape(self.group.order*self.group.order, -1),
             'standard_sign': self.group.standard_sign_reps[self.all_labels].reshape(self.group.order*self.group.order, -1)
         }
 
+        self.hidden_reps_xy_orth = {}
         for key, value in self.hidden_reps_xy.items():
-            self.hidden_reps_xy[key] = value / value.norm(dim=0, keepdim=True)
+            self.hidden_reps_xy_orth[key] = torch.qr(self.hidden_reps_xy[key])[0]
 
 
         if self.group.index == 4:
@@ -101,7 +102,7 @@ class SymmetricMetrics(Metrics):
                 metrics[f'logit_{rep_name}_rep_trace_similarity'] = self.logit_trace_similarity(all_logits, self.rep_trace_tensor_cubes[rep_name])
                 metrics[f'percent_x_embed_{rep_name}_rep'], metrics[f'percent_std_x_embed_{rep_name}_rep'], metrics[f'percent_y_embed_{rep_name}_rep'], metrics[f'percent_std_y_embed_{rep_name}_rep']= self.percent_total_embed(model, self.orth_reps[rep_name])
                 metrics[f'percent_unembed_{rep_name}_rep'], metrics[f'percent_std_unembed_{rep_name}_rep']  = self.percent_unembed(model, self.orth_reps[rep_name])
-                metrics[f'percent_hidden_{rep_name}_rep'], metrics[f'percent_std_hidden_{rep_name}_rep'] = self.percent_hidden(model, self.hidden_reps_xy[rep_name])
+                metrics[f'percent_hidden_{rep_name}_rep'], metrics[f'percent_std_hidden_{rep_name}_rep'] = self.percent_hidden(model, self.hidden_reps_xy_orth[rep_name])
             
         return metrics
 

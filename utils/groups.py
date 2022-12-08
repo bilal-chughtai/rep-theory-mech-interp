@@ -291,6 +291,7 @@ class SymmetricGroup(Group):
         self.S4_2d_reps_orth = torch.linalg.qr(self.S4_2d_reps_orth)[0]
 
     def compute_S6_5d_a_rep(self):
+        # (3,3) specht representation of S6
         rep = {}
 
         rep[Permutation(0, 1, 2, 3, 4, 5)] = torch.tensor([
@@ -321,6 +322,7 @@ class SymmetricGroup(Group):
         self.S6_5d_a_reps_orth = torch.linalg.qr(self.S6_5d_a_reps_orth)[0]
 
     def compute_S6_5d_b_rep(self):
+        # (2,2,2) specht representation of S6
         rep = {}
 
         rep[Permutation(0, 1, 2, 3, 4, 5)] = torch.tensor([
@@ -335,9 +337,9 @@ class SymmetricGroup(Group):
         rep[Permutation(5)(0,1)] = torch.tensor([
             [ 1,  0,  0,  0,  0],
             [ 0,  1,  0,  0,  0],
-            [ 0,  0,  1,  0,  0],
-            [-1,  1,  0, -1,  0],
-            [-1,  0,  1,  0, -1]]
+            [ 1,  0, -1,  0,  0],
+            [ 0,  1,  0, -1,  0],
+            [ 1,  1,  0,  0, -1]]
         ).float() #(0, 1)
 
         self.S6_5d_b_reps = torch.zeros(self.order, 5, 5).cuda()
@@ -392,7 +394,7 @@ class SymmetricGroup(Group):
         if self.index == 6:
             self.S6_5d_a_trace_tensor_cubes = self.compute_trace_tensor_cube(self.all_data, self.S6_5d_a_reps, 's6_5d_a')
             self.S6_5d_a_trace_tensor_cubes -= self.S6_5d_a_trace_tensor_cubes.mean(-1, keepdim=True)
-            self.S6_5d_b_trace_tensor_cubes = self.compute_trace_tensor_cube(self.all_data, self.S6_5d_b_reps, 's6_5d_a')
+            self.S6_5d_b_trace_tensor_cubes = self.compute_trace_tensor_cube(self.all_data, self.S6_5d_b_reps, 's6_5d_b')
             self.S6_5d_b_trace_tensor_cubes -= self.S6_5d_b_trace_tensor_cubes.mean(-1, keepdim=True)
 
 
@@ -409,9 +411,9 @@ class SymmetricGroup(Group):
         self.sign_inverse_reps_orth = self.sign_inverse_reps.reshape(self.order, 1)
         self.sign_inverse_reps_orth = torch.linalg.qr(self.sign_inverse_reps_orth)[0]
 
-        self.trivial_inverse_reps = self.compute_inverse_rep(self.trivial_reps)
-        self.trivial_inverse_reps_orth = self.trivial_inverse_reps.reshape(self.order, 1)
-        self.trivial_inverse_reps_orth = torch.linalg.qr(self.trivial_inverse_reps_orth)[0]
+        #self.trivial_inverse_reps = self.compute_inverse_rep(self.trivial_reps)
+        #self.trivial_inverse_reps_orth = self.trivial_inverse_reps.reshape(self.order, 1)
+        #self.trivial_inverse_reps_orth = torch.linalg.qr(self.trivial_inverse_reps_orth)[0]
 
         if self.index == 4:
             self.S4_2d_inverse_reps = self.compute_inverse_rep(self.S4_2d_reps)
