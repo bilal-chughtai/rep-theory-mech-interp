@@ -157,7 +157,7 @@ class Group:
         self.orders = orders
 
     def compute_inverses(self):
-        inveress = torch.zeros(self.order, dtype=torch.int64)
+        inverses = torch.zeros(self.order, dtype=torch.int64)
         for i in range(self.order):
             inverses[i] = self.inverse(i)
         return inverses
@@ -328,18 +328,18 @@ class SymmetricGroup(Group):
 
             # parameters for representation initialisation
             rep_params = {
-                'group_index': self.index,
-                'group_order': self.order,
+                'index': self.index,
+                'order': self.order,
                 'multiplication_table': self.multiplication_table,
                 'inverses': self.inverses,
                 'all_data': self.all_data,
             }
 
             # initialise representations
-            sign_rep = SignRepresentation([], **rep_params)
-            natural_rep = NaturalRepresentation([], **rep_params)
-            standard_rep = StandardRepresentation([natural_rep.rep], **rep_params)
-            standard_sign_rep = StandardSignRepresentation([standard_rep.rep, sign_rep.rep], **rep_params)
+            sign_rep = SignRepresentation([self.signatures], rep_params)
+            natural_rep = NaturalRepresentation([self.idx_to_perm], rep_params)
+            standard_rep = StandardRepresentation([natural_rep.rep], rep_params)
+            standard_sign_rep = StandardSignRepresentation([standard_rep.rep, sign_rep.rep], rep_params)
 
             self.irreps = {
                 'sign': sign_rep,
@@ -353,7 +353,7 @@ class SymmetricGroup(Group):
                 s4_2d_generators[Permutation(0, 1, 2, 3)] = torch.tensor([[-1, -1], [0, 1]]).float() 
                 s4_2d_generators[Permutation(3, 2, 1, 0)] = s4_2d_generators[Permutation(0, 1, 2, 3)].inverse()
                 s4_2d_generators[Permutation(3)(0,1)] = torch.tensor([[1, 0], [-1, -1]]).float() 
-                s4_2d_rep = S4_2d_Representation([s4_2d_generators, self.G], **rep_params)
+                s4_2d_rep = SymmetricRepresentationFromGenerators([s4_2d_generators, self.G, self.idx_to_perm], rep_params, 's4_2d')
                 self.irreps['s4_2d'] = s4_2d_rep
             
             if self.index == 6:
@@ -374,7 +374,7 @@ class SymmetricGroup(Group):
                     [-1,  1,  0, -1,  0],
                     [-1,  0,  1,  0, -1]],
                 ).float() 
-                s6_5d_a_rep = S6_5d_a_Representation([s6_5d_a_generators, self.G], **rep_params)
+                s6_5d_a_rep = SymmetricRepresentationFromGenerators([s6_5d_a_generators, self.G, self.idx_to_perm], rep_params, 's6_5d_a')
                 self.irreps['s6_5d_a'] = s6_5d_a_rep
 
                 # (2,2,2) specht rep
@@ -393,7 +393,7 @@ class SymmetricGroup(Group):
                     [ 0,  1,  0, -1,  0],
                     [ 1,  1,  0,  0, -1]]
                 ).float() 
-                s6_5d_b_rep = S6_5d_b_Representation([s6_5d_b_generators, self.G], **rep_params)
+                s6_5d_b_rep = SymmetricRepresentationFromGenerators([s6_5d_b_generators, self.G, self.idx_to_perm], rep_params, 's6_5d_b')
                 self.irreps['s6_5d_b'] = s6_5d_b_rep
 
 
@@ -476,7 +476,7 @@ class SymmetricRepresentation():
     Base class for all representations of a symmetric group.
     """
 
-    def __init__(self, compute_rep_params, index, order, multiplication_table, inverses):
+    def __init__(self, compute_rep_params, index, order, multiplication_table, inverses, all_data, irrep=True):
         """
         Initialise the symmetric group representation.
 
@@ -486,22 +486,34 @@ class SymmetricRepresentation():
             order (int): order of the group
             multiplication_table (torch.tensor): square (group.order, group.order) tensor of group multiplication table 
             inverses (torch.tensor): vector of group inverses
+            all_data ()
+            irrep (Boolean)
         """
 
-        self.friendly_name = 'none'
-        self.dim = None
         self.index = index
         self.order = order
         self.multiplication_table = multiplication_table
         self.inverses = inverses
+        self.all_data = all_data
+
+        # TODO: this is needed to get the dimension of generated representations - think up a better way of doing this
+        self.compute_rep_params = compute_rep_params
+
+        self.dim = self.get_rep_dim()
 
         self.rep = self.compute_rep(*compute_rep_params)
-        self.orth_rep = self.compute_orth_rep(self.rep)
 
-        self.logit_trace_tensor_cube = self.compute_logit_trace_tensor_cube()
+        if irrep:
+            self.orth_rep = self.compute_orth_rep(self.rep)
 
-        self.inverse_rep = self.compute_inverse_rep()
-        self.inverse_orth_rep = self.compute_orth_rep(self.inverse_rep)
+            self.logit_trace_tensor_cube = self.compute_logit_trace_tensor_cube()
+
+            self.inverse_rep = self.compute_inverse_rep()
+            self.inverse_orth_rep = self.compute_orth_rep(self.inverse_rep)
+
+
+    def get_rep_dim(self):
+        return NotImplementedError
 
     def compute_rep():
         """
@@ -512,7 +524,7 @@ class SymmetricRepresentation():
         """
         raise NotImplementedError
     
-    def compute_orth_rep(rep):
+    def compute_orth_rep(self, rep):
         """
         Use QR decomposition to orthogonalise the representation but retain the subspace spanned by the columns. 
 
@@ -541,7 +553,7 @@ class SymmetricRepresentation():
         if os.path.exists(filename):
             print('... loading from file')
             return torch.load(filename)
-        N = all_data.shape[0]
+        N = self.all_data.shape[0]
         t = torch.zeros((self.order*self.order, self.order), dtype=torch.float).cuda()
         for i in tqdm(range(N)):
             x = self.all_data[i, 0]
@@ -569,22 +581,26 @@ class SymmetricRepresentation():
 
 class NaturalRepresentation(SymmetricRepresentation):
     def __init__(self, compute_rep_params, init_rep_params):
-        super().__init__(compute_rep_params, **init_rep_params)
         self.friendly_name = 'natural'
-        self.dim = index
+        super().__init__(compute_rep_params, **init_rep_params, irrep=False)
     
-    def compute_rep(self):
-        idx = list(np.linspace(0, self.group_index-1, self.group_index))
-        rep = torch.zeros(self.order, self.group_index, self.group_index).cuda()
+    def get_rep_dim(self):
+        return self.index
+
+    def compute_rep(self, idx_to_perm):
+        idx = list(np.linspace(0, self.index-1, self.index))
+        rep = torch.zeros(self.order, self.index, self.index).cuda()
         for x in range(self.order):
-            rep[x, idx, self.idx_to_perm(x)(idx)] = 1
+            rep[x, idx, idx_to_perm(x)(idx)] = 1
         return rep
 
 class StandardRepresentation(SymmetricRepresentation):
     def __init__(self, compute_rep_params, init_rep_params):
-        super().__init__(compute_rep_params, **init_rep_params)
         self.friendly_name = 'standard'
-        self.dim = self.index - 1
+        super().__init__(compute_rep_params, **init_rep_params)
+
+    def get_rep_dim(self):
+        return self.index-1
     
     def compute_rep(self, natural_reps):
         rep = []
@@ -601,9 +617,11 @@ class StandardRepresentation(SymmetricRepresentation):
         
 class SignRepresentation(SymmetricRepresentation):
     def __init__(self, compute_rep_params, init_rep_params):
-        super().__init__(compute_rep_params, **init_rep_params)
         self.friendly_name = 'sign'
-        self.dim = 1
+        super().__init__(compute_rep_params, **init_rep_params)
+
+    def get_rep_dim(self):
+        return 1
 
     def compute_rep(self, signatures):
         rep = torch.zeros(self.order, 1, 1).cuda()
@@ -612,10 +630,11 @@ class SignRepresentation(SymmetricRepresentation):
 
 class StandardSignRepresentation(SymmetricRepresentation):
     def __init__(self, compute_rep_params, init_rep_params):
-        super().__init__(compute_rep_params, **init_rep_params)
         self.friendly_name = 'standard_sign'
-        self.dim = self.index - 1
-        
+        super().__init__(compute_rep_params, **init_rep_params)
+
+    def get_rep_dim(self):
+        return self.index-1
 
     def compute_rep(self, standard_reps, signatures):
         rep = []
@@ -624,20 +643,21 @@ class StandardSignRepresentation(SymmetricRepresentation):
         rep = torch.stack(rep, dim=0).cuda()
         return rep
 
-class SymmetricRepresentationFromGenerators():
+class SymmetricRepresentationFromGenerators(SymmetricRepresentation):
     def __init__(self, compute_rep_params, init_rep_params, name):
+        self.friendly_name = name
         super().__init__(compute_rep_params, **init_rep_params)
-        self.friendly_name = 'from_generators'
 
-        # TODO: make this less hacky
-        self.dim = compute_rep_params[0].values[0].shape[0] # hacky way to get the dimension of the representation
+    # TODO: make this less hacky
+    def get_rep_dim(self):
+        return list(self.compute_rep_params[0].values())[0].shape[0] # hacky way to get the dimension of the representation
 
-    def compute_rep(self, generators, G):
+    def compute_rep(self, generators, G, idx_to_perm):
         rep = torch.zeros(self.order, self.dim, self.dim).cuda()
         for i in range(self.order):
-            generator_product = self.G.generator_product(self.idx_to_perm(i), original=True)
-            result = torch.eye(self.dim).float().cuda()
+            generator_product = G.generator_product(idx_to_perm(i), original=True)
+            result = torch.eye(self.dim).float()
             for g in generator_product:
-                result = result @ self.generators[g]
-            reps[i] = result
-        return reps
+                result = result @ generators[g]
+            rep[i] = result
+        return rep.cuda()

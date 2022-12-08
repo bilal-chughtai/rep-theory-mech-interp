@@ -59,9 +59,9 @@ class SymmetricMetrics(Metrics):
             # reps
             for rep_name in self.group.irreps.keys():
                 metrics[f'logit_{rep_name}_rep_trace_similarity'] = self.logit_trace_similarity(all_logits, self.group.irreps[rep_name].logit_trace_tensor_cube)
-                metrics[f'percent_x_embed_{rep_name}_rep'], metrics[f'percent_std_x_embed_{rep_name}_rep'], metrics[f'percent_y_embed_{rep_name}_rep'], metrics[f'percent_std_y_embed_{rep_name}_rep']= self.percent_total_embed(model, self.group.irreps[rep_name].orth_reps)
-                metrics[f'percent_unembed_{rep_name}_rep'], metrics[f'percent_std_unembed_{rep_name}_rep']  = self.percent_unembed(model, self.group.irreps[rep_name].orth_reps)
-                metrics[f'percent_hidden_{rep_name}_rep'], metrics[f'percent_std_hidden_{rep_name}_rep'] = self.percent_hidden(model, self.hidden_reps_xy_orth[rep_name])
+                metrics[f'percent_x_embed_{rep_name}_rep'], metrics[f'percent_std_x_embed_{rep_name}_rep'], metrics[f'percent_y_embed_{rep_name}_rep'], metrics[f'percent_std_y_embed_{rep_name}_rep']= self.percent_total_embed(model, self.group.irreps[rep_name].orth_rep)
+                metrics[f'percent_unembed_{rep_name}_rep'], metrics[f'percent_std_unembed_{rep_name}_rep']  = self.percent_unembed(model, self.group.irreps[rep_name].orth_rep)
+                metrics[f'percent_hidden_{rep_name}_rep'], metrics[f'percent_std_hidden_{rep_name}_rep'] = self.percent_hidden(model, self.group.irreps[rep_name].hidden_reps_xy_orth)
             
         return metrics
 
