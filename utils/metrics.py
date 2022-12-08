@@ -4,7 +4,21 @@ import torch
 import torch.nn.functional as F
 
 class Metrics():
+    """
+    A class to track metrics during training and testing.
+    """
     def __init__(self, group, training, track_metrics, train_labels=None, test_data=None, test_labels=None):
+        """
+        Initialise the metrics class.
+
+        Args:
+            group(Group): group the task is defined on
+            training (bool): whether the model is being trained or tested
+            track_metrics (bool): whether to track of only basic metrics (loss, accuracy), or also more complex metrics
+            train_labels (torch.tensor, optional): labels for training data. Defaults to None.
+            test_data (torch.tensor, optional): data for testing. Defaults to None.
+            test_labels (torch.tensor, optional): labels for testing data. Defaults to None.
+        """
         self.training = training
         self.train_labels = train_labels
         self.test_data = test_data
@@ -16,14 +30,44 @@ class Metrics():
         self.all_labels = all_data[:, 2]
     
     def get_accuracy(self, logits, labels):
+        """
+        Compute accuracy of model.
+
+        Args:
+            logits (torch.tensor): (batch, group.order) tensor of logits
+            labels (torch.tensor): (batch) tensor of labels
+
+        Returns:
+            float: accuracy
+        """
         return ((logits.argmax(1)==labels).sum()/len(labels)).item()
 
     def get_test_all_logits(self, model):
+        """
+        Compute logits for test and all data.
+
+        Args:
+            model(nn.Module): neural network
+
+        Returns:
+            tuple: (test_logits, all_logits)
+        """
         test_logits = model(self.test_data)
         all_logits = model(self.all_data)
         return test_logits, all_logits
 
     def get_standard_metrics(self, test_logits, train_logits, train_loss):
+        """
+        Generate losses and accuracies for test and train data.
+
+        Args:
+            test_logits (torch.tensor): (batch, group.order) tensor of logits for test data
+            train_logits (torch.tensor): (batch, group.order) tensor of logits for train data
+            train_loss (torch.tensor): scalar tensor of loss for train data
+
+        Returns:
+            dict: dictionary of metrics
+        """
         metrics = {}
         metrics['train_loss'] = train_loss.item()
         metrics['test_loss'] = loss_fn(test_logits, self.test_labels).item()
@@ -33,7 +77,12 @@ class Metrics():
 
 
 class SymmetricMetrics(Metrics):
+    """
+    A class to track metrics during training and testing for symmetric group tasks.
+
+    """
     def __init__(self, group, training, track_metrics, train_labels=None, test_data=None, test_labels=None, cfg=None):
+
         super().__init__(group, training, track_metrics, train_labels, test_data, test_labels)
 
         for rep_name in self.group.irreps.keys():
@@ -42,6 +91,17 @@ class SymmetricMetrics(Metrics):
 
 
     def get_metrics(self, model, train_logits=None, train_loss=None):
+        """
+        Compute metrics for model.
+
+        Args:
+            model (nn.Module): neural network
+            train_logits (torch.tensor, optional): Logits for training data. Defaults to None.
+            train_loss (torch.tensor, optional): Loss for training data. Defaults to None.
+
+        Returns:
+            dict: dictionary of metrics
+        """
         metrics = {}
 
         if self.training:
@@ -66,6 +126,16 @@ class SymmetricMetrics(Metrics):
         return metrics
 
     def logit_trace_similarity(self, logits, trace_cube):
+        """
+        Compute cosine similarity between true logits and logits computed via tr(\rho(x)\rho(y)\rho(z^-1))
+
+        Args:
+            logits (torch.tensor): (batch, group.order) tensor of logits
+            trace_cube (torch.tensor): (group.order, group.order, group.order) tensor of tr(\rho(x)\rho(y)\rho(z^-1))
+
+        Returns:
+            float: mean cosine similarity over batch
+        """
         logits = logits.reshape(self.group.order, self.group.order, -1)
         centred_logits = logits - logits.mean(-1, keepdim=True)
         centred_logits = centred_logits.reshape(self.group.order*self.group.order,-1)
@@ -74,13 +144,34 @@ class SymmetricMetrics(Metrics):
         return sims.mean().item()
 
     def percent_unembed(self, model, orth_rep):
+        """
+        Compute the percent of the unembed represented by the representation.
+
+        Args:
+            model (nn.Module): neural network
+            orth_rep (torch.tensor): orthonormal representation
+
+        Returns:
+            (float, float): (total percent, standard deviation over matrix elements of orthonomal representation)
+
+        # TODO: the std is not that meaningful here
+        """
         norm_U = model.W_U.pow(2).sum()
         coefs_U = orth_rep.T @ model.W_U.T
         conts_U = coefs_U.pow(2).sum(-1) / norm_U
         return conts_U.sum(), conts_U.std()
 
     def percent_total_embed(self, model, orth_rep):
-        # same as above, but multiply out linear layers
+        """
+        Compute the percent of the total embedding represented by the representation. Total embedding is the matmul of the embedding and the linear layer.
+
+        Args:
+            model (nn.Module): neural network
+            orth_rep (torch.tensor): orthonormal representation
+
+        Returns:
+            (float, float, float, float): (total percent x, std x, total percent y, std y)
+        """
         dims = orth_rep.shape[1]
         embed_dim = model.W_x.shape[1]
         x_embed = model.W_x @ model.W[:embed_dim, :]
@@ -97,18 +188,37 @@ class SymmetricMetrics(Metrics):
 
         return conts_x.sum(), conts_x.std(), conts_y.sum(), conts_y.std()
         
-    def percent_hidden(self, model, hidden_reps_xy):
+    def percent_hidden(self, model, hidden_reps_xy_orth):
+        """
+        Compute the percent of the total hidden representation represented by the representation matrices \rho(xy).
+
+        Args:
+            model (nn.Module): neural network
+            hidden_reps_xy (torch.tensor): orthonormal hidden representations \rho(xy)
+
+        Returns:
+            (float, float): (total percent, standard deviation over matrix elements of orthonomal representation)
+        """
         logits, activations = model.run_with_cache(self.all_data, return_cache_object=False)
         hidden = activations['hidden'] # DONT CENTER - activations['hidden'].mean(0, keepdim=True) # center
         hidden_norm = hidden.pow(2).sum()
 
-        coefs_xy = hidden_reps_xy.T @ hidden
+        coefs_xy = hidden_reps_xy_orth.T @ hidden
         xy_conts = coefs_xy.pow(2).sum(-1) / hidden_norm
 
         return xy_conts.sum(), xy_conts.std()
 
 
     def loss_on_alternating_group(self, model):
+        """
+        Compute the loss on the alternating group.
+
+        Args:
+            model (nn.Module): neural network
+
+        Returns:
+            float: loss on alternating group
+        """
         alternating_indices = [i for i in range(self.group.order) if self.group.signature(i) == 1]
         alternating_data = self.group.get_subset_of_data(alternating_indices).cuda()
         alternating_data, alternating_labels = alternating_data[:, :2], alternating_data[:, 2]
@@ -117,6 +227,15 @@ class SymmetricMetrics(Metrics):
         return alternating_loss
 
     def loss_all(self, all_logits):
+        """
+        Compute the loss on the entire group.
+
+        Args:
+            all_logits (torch.tensor): (batch, group.order) tensor of logits
+
+        Returns:
+            float: loss on entire group
+        """
         loss = loss_fn(all_logits, self.all_labels).item()
         return loss
 
