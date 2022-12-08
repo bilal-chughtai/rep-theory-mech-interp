@@ -394,8 +394,8 @@ class SymmetricGroup(Group):
         if self.index == 6:
             self.S6_5d_a_trace_tensor_cubes = self.compute_trace_tensor_cube(self.all_data, self.S6_5d_a_reps, 's6_5d_a')
             self.S6_5d_a_trace_tensor_cubes -= self.S6_5d_a_trace_tensor_cubes.mean(-1, keepdim=True)
-            self.S6_5d_b_trace_tensor_cubes = self.compute_trace_tensor_cube(self.all_data, self.S6_5d_b_reps, 's6_5d_b')
-            self.S6_5d_b_trace_tensor_cubes -= self.S6_5d_b_trace_tensor_cubes.mean(-1, keepdim=True)
+            #self.S6_5d_b_trace_tensor_cubes = self.compute_trace_tensor_cube(self.all_data, self.S6_5d_b_reps, 's6_5d_b') temporary
+            #self.S6_5d_b_trace_tensor_cubes -= self.S6_5d_b_trace_tensor_cubes.mean(-1, keepdim=True)
 
 
     def compute_inverse_reps(self):

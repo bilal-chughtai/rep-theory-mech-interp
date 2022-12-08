@@ -61,9 +61,7 @@ class SymmetricMetrics(Metrics):
             'standard_sign': self.group.standard_sign_reps[self.all_labels].reshape(self.group.order*self.group.order, -1)
         }
 
-        self.hidden_reps_xy_orth = {}
-        for key, value in self.hidden_reps_xy.items():
-            self.hidden_reps_xy_orth[key] = torch.qr(self.hidden_reps_xy[key])[0]
+
 
 
         if self.group.index == 4:
@@ -75,12 +73,16 @@ class SymmetricMetrics(Metrics):
             self.reps['s6_5d_a'] = self.group.S6_5d_a_reps
             self.orth_reps['s6_5d_a'] = self.group.S6_5d_a_reps_orth
             self.hidden_reps_xy['s6_5d_a'] = self.group.S6_5d_a_reps[self.all_labels].reshape(self.group.order*self.group.order, -1)
+            self.rep_trace_tensor_cubes['s6_5d_a'] = self.group.S6_5d_a_trace_tensor_cubes
 
             self.reps['s6_5d_b'] = self.group.S6_5d_b_reps
             self.orth_reps['s6_5d_b'] = self.group.S6_5d_b_reps_orth
             self.hidden_reps_xy['s6_5d_b'] = self.group.S6_5d_b_reps[self.all_labels].reshape(self.group.order*self.group.order, -1)
+            #self.rep_trace_tensor_cubes['s6_5d_b'] = self.group.S6_5d_b_trace_tensor_cubes
             
-
+        self.hidden_reps_xy_orth = {}
+        for key, value in self.hidden_reps_xy.items():
+            self.hidden_reps_xy_orth[key] = torch.qr(self.hidden_reps_xy[key])[0]
 
     def get_metrics(self, model, train_logits=None, train_loss=None):
         metrics = {}
@@ -99,7 +101,8 @@ class SymmetricMetrics(Metrics):
 
             # reps
             for rep_name in self.reps.keys():
-                metrics[f'logit_{rep_name}_rep_trace_similarity'] = self.logit_trace_similarity(all_logits, self.rep_trace_tensor_cubes[rep_name])
+                if rep_name != 's6_5d_b': #hacky fix while we dont have the trace tensor cube cached for this
+                    metrics[f'logit_{rep_name}_rep_trace_similarity'] = self.logit_trace_similarity(all_logits, self.rep_trace_tensor_cubes[rep_name])
                 metrics[f'percent_x_embed_{rep_name}_rep'], metrics[f'percent_std_x_embed_{rep_name}_rep'], metrics[f'percent_y_embed_{rep_name}_rep'], metrics[f'percent_std_y_embed_{rep_name}_rep']= self.percent_total_embed(model, self.orth_reps[rep_name])
                 metrics[f'percent_unembed_{rep_name}_rep'], metrics[f'percent_std_unembed_{rep_name}_rep']  = self.percent_unembed(model, self.orth_reps[rep_name])
                 metrics[f'percent_hidden_{rep_name}_rep'], metrics[f'percent_std_hidden_{rep_name}_rep'] = self.percent_hidden(model, self.hidden_reps_xy_orth[rep_name])
