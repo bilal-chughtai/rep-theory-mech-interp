@@ -85,9 +85,10 @@ class SymmetricMetrics(Metrics):
 
         super().__init__(group, training, track_metrics, train_labels, test_data, test_labels)
 
-        for rep_name in self.group.irreps.keys():
-            self.group.irreps[rep_name].hidden_reps_xy = self.group.irreps[rep_name].rep[self.all_labels].reshape(self.group.order*self.group.order, -1)
-            self.group.irreps[rep_name].hidden_reps_xy_orth = torch.qr(self.group.irreps[rep_name].hidden_reps_xy)[0]
+        if track_metrics:
+            for rep_name in self.group.irreps.keys():
+                self.group.irreps[rep_name].hidden_reps_xy = self.group.irreps[rep_name].rep[self.all_labels].reshape(self.group.order*self.group.order, -1)
+                self.group.irreps[rep_name].hidden_reps_xy_orth = torch.qr(self.group.irreps[rep_name].hidden_reps_xy)[0]
 
 
     def get_metrics(self, model, train_logits=None, train_loss=None):
