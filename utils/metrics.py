@@ -7,12 +7,13 @@ class Metrics():
     """
     A class to track metrics during training and testing.
     """
-    def __init__(self, group, training, track_metrics, train_labels=None, test_data=None, test_labels=None):
+    def __init__(self, cfg, group, training, track_metrics, train_labels=None, test_data=None, test_labels=None):
         """
         Initialise the metrics class.
 
         Args:
-            group(Group): group the task is defined on
+            cfg (dict): configuration dictionary
+            group (Group): group the task is defined on
             training (bool): whether the model is being trained or tested
             track_metrics (bool): whether to track of only basic metrics (loss, accuracy), or also more complex metrics
             train_labels (torch.tensor, optional): labels for training data. Defaults to None.
@@ -28,6 +29,7 @@ class Metrics():
         all_data = group.get_all_data().cuda()
         self.all_data = all_data[:, :2]
         self.all_labels = all_data[:, 2]
+        self.cfg = cfg
     
     def get_accuracy(self, logits, labels):
         """
@@ -83,7 +85,7 @@ class SymmetricMetrics(Metrics):
     """
     def __init__(self, group, training, track_metrics, train_labels=None, test_data=None, test_labels=None, cfg=None):
 
-        super().__init__(group, training, track_metrics, train_labels, test_data, test_labels)
+        super().__init__(cfg, group, training, track_metrics, train_labels, test_data, test_labels)
 
         for rep_name in self.group.irreps.keys():
             self.group.irreps[rep_name].hidden_reps_xy = self.group.irreps[rep_name].rep[self.all_labels].reshape(self.group.order*self.group.order, -1)
@@ -122,7 +124,13 @@ class SymmetricMetrics(Metrics):
                 metrics[f'percent_x_embed_{rep_name}_rep'], metrics[f'percent_std_x_embed_{rep_name}_rep'], metrics[f'percent_y_embed_{rep_name}_rep'], metrics[f'percent_std_y_embed_{rep_name}_rep']= self.percent_total_embed(model, self.group.irreps[rep_name].orth_rep)
                 metrics[f'percent_unembed_{rep_name}_rep'], metrics[f'percent_std_unembed_{rep_name}_rep']  = self.percent_unembed(model, self.group.irreps[rep_name].orth_rep)
                 metrics[f'percent_hidden_{rep_name}_rep'], metrics[f'percent_std_hidden_{rep_name}_rep'] = self.percent_hidden(model, self.group.irreps[rep_name].hidden_reps_xy_orth)
-            
+                metrics[f'excluded_loss_{rep_name}_rep'] = self.excluded_loss(model, self.group.irreps[rep_name].orth_rep)
+
+            metrics['restricted_loss'] = self.restricted_loss(model, self.cfg['key_reps'])
+            metrics['total_excluded_loss'] = self.total_excluded_loss(model, self.cfg['key_reps'])
+            metrics['test_loss_restricted_loss_ratio'] = metrics['test_loss']/metrics['restricted_loss']
+            metrics['sum_of_squared_weights'] = self.sum_of_squared_weights(model)
+
         return metrics
 
     def logit_trace_similarity(self, logits, trace_cube):
@@ -142,6 +150,7 @@ class SymmetricMetrics(Metrics):
         centred_trace = trace_cube.reshape(self.group.order*self.group.order,-1)
         sims = F.cosine_similarity(centred_logits, centred_trace, dim=-1)
         return sims.mean().item()
+
 
     def percent_unembed(self, model, orth_rep):
         """
@@ -172,7 +181,6 @@ class SymmetricMetrics(Metrics):
         Returns:
             (float, float, float, float): (total percent x, std x, total percent y, std y)
         """
-        dims = orth_rep.shape[1]
         embed_dim = model.W_x.shape[1]
         x_embed = model.W_x @ model.W[:embed_dim, :]
         y_embed = model.W_y @ model.W[embed_dim:, :]
@@ -238,6 +246,131 @@ class SymmetricMetrics(Metrics):
         """
         loss = loss_fn(all_logits, self.all_labels).item()
         return loss
+
+    def excluded_loss(self, model, orth_rep):
+        """
+        Compute the loss having ablated one of the representations.
+
+        Args:
+            orth_rep (torch.tensor): orthonormal representation
+
+        Returns:
+            float: loss on entire group with one representation ablated
+        """
+        # TODO: make this not architecture specific
+
+        embed_dim = model.W_x.shape[1]
+        x_embed = model.W_x @ model.W[:embed_dim, :]
+        y_embed = model.W_y @ model.W[embed_dim:, :]
+
+        coefs_x = orth_rep.T @ x_embed
+        coefs_y = orth_rep.T @ y_embed
+
+        x_embed_cont = orth_rep @ coefs_x
+        y_embed_cont = orth_rep @ coefs_y
+
+        x_embed_excluded = x_embed - x_embed_cont
+        y_embed_excluded = y_embed - y_embed_cont
+
+        x_embed_excluded = x_embed_excluded.unsqueeze(1) #(group.order, 1, hidden)
+        y_embed_excluded = y_embed_excluded.unsqueeze(0) # (1, group.order, hidden)
+
+        hidden = torch.nn.ReLU()((x_embed_excluded + y_embed_excluded).reshape(self.group.order**2, -1))
+        logits = hidden @ model.W_U
+
+        loss = loss_fn(logits, self.all_labels).item()
+
+        return loss
+    
+    def restricted_loss(self, model, key_reps):
+        """
+        Compute the loss having restricted to only the representations the network learns.
+
+        Args:
+            key_reps (list): list of names of representations to restrict to
+
+        Returns:
+            float: loss on entire group restricting only to the key representations
+        """
+        # TODO: make this not architecture specific
+
+        embed_dim = model.W_x.shape[1]
+
+        x_embed = model.W_x @ model.W[:embed_dim, :]
+        y_embed = model.W_y @ model.W[embed_dim:, :]
+        
+        x_embed_restricted = torch.zeros_like(x_embed)
+        y_embed_restricted = torch.zeros_like(y_embed)
+
+        for key_rep in key_reps:
+            orth_rep = self.group.irreps[key_rep].orth_rep
+
+            coefs_x = orth_rep.T @ x_embed
+            coefs_y = orth_rep.T @ y_embed
+
+            x_embed_cont = orth_rep @ coefs_x
+            y_embed_cont = orth_rep @ coefs_y
+
+            x_embed_restricted += x_embed_cont
+            y_embed_restricted += y_embed_cont
+
+        x_embed_restricted = x_embed_restricted.unsqueeze(1) #(group.order, 1, hidden)
+        y_embed_restricted = y_embed_restricted.unsqueeze(0) # (1, group.order, hidden)
+
+        hidden = torch.nn.ReLU()((x_embed_restricted + y_embed_restricted).reshape(self.group.order**2, -1))
+        logits = hidden @ model.W_U
+
+        loss = loss_fn(logits, self.all_labels).item()
+        return loss
+
+    def total_excluded_loss(self, model, key_reps):
+        embed_dim = model.W_x.shape[1]
+
+        x_embed = model.W_x @ model.W[:embed_dim, :]
+        y_embed = model.W_y @ model.W[embed_dim:, :]
+        
+        x_embed_excluded = x_embed
+        y_embed_excluded = y_embed
+
+        for key_rep in key_reps:
+            orth_rep = self.group.irreps[key_rep].orth_rep
+
+            coefs_x = orth_rep.T @ x_embed
+            coefs_y = orth_rep.T @ y_embed
+
+            x_embed_cont = orth_rep @ coefs_x
+            y_embed_cont = orth_rep @ coefs_y
+
+            x_embed_excluded -= x_embed_cont
+            y_embed_excluded -= y_embed_cont
+
+        x_embed_excluded = x_embed_excluded.unsqueeze(1) #(group.order, 1, hidden)
+        y_embed_excluded = y_embed_excluded.unsqueeze(0) # (1, group.order, hidden)
+
+        hidden = torch.nn.ReLU()((x_embed_excluded + y_embed_excluded).reshape(self.group.order**2, -1))
+        logits = hidden @ model.W_U
+
+        loss = loss_fn(logits, self.all_labels).item()
+        return loss
+
+    def sum_of_squared_weights(self, model):
+        """
+        Compute the sum of squared weights on the whole model.
+
+        Args:
+            model (nn.Module)
+
+        Returns:
+            float: sum of squared weights on entire group
+        """
+
+        sum_of_square_weights = 0
+        sum_of_square_weights += torch.sum(model.W_x**2)
+        sum_of_square_weights += torch.sum(model.W_y**2)
+        sum_of_square_weights += torch.sum(model.W_U**2)
+        sum_of_square_weights += torch.sum(model.W**2)
+
+        return sum_of_square_weights
 
 
 

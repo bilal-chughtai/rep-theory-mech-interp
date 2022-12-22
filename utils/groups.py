@@ -347,6 +347,10 @@ class SymmetricGroup(Group):
                 'standard_sign': standard_sign_rep,
             }
 
+            self.other_reps = {
+                'natural': natural_rep,
+            }
+
             if self.index == 4:
 
                 s4_2d_generators = {}
@@ -505,11 +509,7 @@ class SymmetricRepresentation():
 
         if irrep:
             self.orth_rep = self.compute_orth_rep(self.rep)
-
             self.logit_trace_tensor_cube = self.compute_logit_trace_tensor_cube()
-
-            self.inverse_rep = self.compute_inverse_rep()
-            self.inverse_orth_rep = self.compute_orth_rep(self.inverse_rep)
 
 
     def get_rep_dim(self):
@@ -566,16 +566,6 @@ class SymmetricRepresentation():
         f = open(filename, 'wb')
         torch.save(t, f)
         return t - t.mean(-1, keepdim=True)
-    
-    def compute_inverse_rep(self):
-        """
-        Compute the inverse representation.
-
-        Returns:
-            torch.tensor: (group.order, dim^2) tensor of inverse representations
-        """
-        return self.rep[self.inverses]
-    
 
 
 

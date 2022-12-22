@@ -24,7 +24,7 @@ else:
 
 track_metrics = True
 
-task_dir = "1L_MLP_sym_S4"
+task_dir = "1L_MLP_sym_S5"
 
 print(f'Training {task_dir}')
 
@@ -60,7 +60,7 @@ test_accs = []
 print('Initializing model...')
 model = architecture_type(layers, group.order, seed)
 model.cuda()
-metrics = metric_obj(group, True, track_metrics, train_labels, test_data, test_labels)
+metrics = metric_obj(group, True, track_metrics, train_labels, test_data, test_labels, metric_cfg)
 optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
 
 
