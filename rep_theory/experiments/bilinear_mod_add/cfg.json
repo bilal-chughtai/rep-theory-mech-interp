@@ -1,0 +1,13 @@
+{
+    "model": "BilinearNet",
+    "group": "CyclicGroup",
+    "group_parameter": 131,
+    "seed": 1,
+    "frac_train" : 0.3,
+    "layers": {
+        "embed_dim": 256
+    },
+    "lr" : 1e-3,
+    "weight_decay" : 0.5,
+    "num_epochs" : 200000
+}

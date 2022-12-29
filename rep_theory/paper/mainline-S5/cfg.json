@@ -1,0 +1,18 @@
+{
+    "model": "OneLayerMLP",
+    "group": "SymmetricGroup",
+    "group_parameter": 5,
+    "seed": 1,
+    "frac_train" : 0.5,
+    "layers": {
+        "embed_dim": 256,
+        "hidden_dim": 128
+    },
+    "lr" : 1e-3,
+    "weight_decay" : 0.5,
+    "num_epochs" : 60000,
+    "metrics": {
+        "class": "SymmetricMetrics",
+        "key_reps": ["standard", "sign"]
+    }
+}
