@@ -24,7 +24,7 @@ else:
 
 track_metrics = True
 
-task_dir = "experiments/1L_MLP_sym_S5"
+task_dir = "experiments/BilinearNet_S5"
 
 print(f'Training {task_dir}')
 

@@ -27,7 +27,6 @@ class BilinearNet(HookedRootModule):
         self.W_U = nn.Parameter(torch.randn(embed_dim, n)/np.sqrt(embed_dim))
 
         self.hidden = HookPoint()
-        self.out = HookPoint()
         
         # We need to call the setup function of HookedRootModule to build an 
         # internal dictionary of modules and hooks, and to give each hook a name
@@ -39,7 +38,7 @@ class BilinearNet(HookedRootModule):
         y = data[:, 1]
         y_embed = self.W_y[y] # (batch, embed_dim)
         hidden = self.hidden(x_embed * y_embed) # (batch, embed_dim)
-        out = self.out(hidden @ self.W_U) # (batch, n)
+        out = hidden @ self.W_U # (batch, n)
 
         # for metrics
         self.x_embed = self.W_x
@@ -67,7 +66,6 @@ class OneLayerMLP(HookedRootModule):
         # hookpoints
         self.embed_stack = HookPoint()
         self.hidden = HookPoint()
-        self.out = HookPoint()
 
         # We need to call the setup function of HookedRootModule to build an 
         # internal dictionary of modules and hooks, and to give each hook a name
@@ -80,7 +78,7 @@ class OneLayerMLP(HookedRootModule):
         half_y_embed = self.W_y[y] # (batch, embed_dim)
         embed_stack = self.embed_stack(torch.hstack((half_x_embed, half_y_embed))) # (batch, 2*embed_dim)
         hidden = self.hidden(self.relu(embed_stack @ self.W)) # (batch, hidden)
-        out = self.out(hidden @ self.W_U) # (batch, n)
+        out = hidden @ self.W_U # (batch, n)
 
         # for metrics
         self.x_embed = self.W_x @ self.W[:self.embed_dim, :]

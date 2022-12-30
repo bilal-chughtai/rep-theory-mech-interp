@@ -349,6 +349,7 @@ class SymmetricGroup(Group):
                 'standard_sign': standard_sign_rep,
             }
 
+
             self.other_reps = {
                 'natural': natural_rep,
             }
@@ -468,8 +469,10 @@ class SymmetricGroup(Group):
                 s6_5d_b_rep = SymmetricRepresentationFromGenerators([s6_5d_b_generators, self.G, self.idx_to_perm], rep_params, 's6_5d_b')
                 self.irreps['s6_5d_b'] = s6_5d_b_rep
 
-
-
+            # copy over the non-trivial irreps    
+            self.non_trivial_irreps = self.irreps.copy()
+            del self.non_trivial_irreps['trivial']
+    
 
     def idx_to_perm(self, x):
         """
@@ -610,8 +613,9 @@ class SymmetricRepresentation():
     def compute_logit_trace_tensor_cube(self):
         """
         Under the hypothesis, the network computes tr(\rho(x)\rho(y)\rho(z^-1)) for some representation \rho.
-        This function computes this trace tensor cube for a given representation, and returns this tensor, centred around 0 in the 
-        logit space.
+        This function computes this trace tensor cube for a given representation, and returns this tensor
+        
+        WE DONT CENTRE.
 
         Returns:
             torch.tensor: (group.order^3) trace tensor cube
@@ -620,7 +624,8 @@ class SymmetricRepresentation():
         filename = f'utils/cache/S{self.index}_{self.friendly_name}_trace_tensor_cube.pt'
         if os.path.exists(filename):
             print('... loading from file')
-            return torch.load(filename)
+            t = torch.load(filename)
+            return t #- t.mean(-1, keepdim=True)
         N = self.all_data.shape[0]
         t = torch.zeros((self.order*self.order, self.order), dtype=torch.float).cuda()
         for i in tqdm(range(N)):
@@ -633,7 +638,7 @@ class SymmetricRepresentation():
         t = t.reshape(self.order, self.order, self.order)
         f = open(filename, 'wb')
         torch.save(t, f)
-        return t - t.mean(-1, keepdim=True)
+        return t #- t.mean(-1, keepdim=True)
 
 
 class TrivialRepresentation(SymmetricRepresentation):

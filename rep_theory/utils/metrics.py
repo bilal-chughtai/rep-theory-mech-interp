@@ -90,7 +90,7 @@ class SymmetricMetrics(Metrics):
         if track_metrics:
             for rep_name in self.group.irreps.keys():
                 self.group.irreps[rep_name].hidden_reps_xy = self.group.irreps[rep_name].rep[self.all_labels].reshape(self.group.order*self.group.order, -1)
-                self.group.irreps[rep_name].hidden_reps_xy_orth = torch.qr(self.group.irreps[rep_name].hidden_reps_xy)[0]
+                self.group.irreps[rep_name].hidden_reps_xy_orth = torch.linalg.qr(self.group.irreps[rep_name].hidden_reps_xy)[0]
 
 
     def get_metrics(self, model, train_logits=None, train_loss=None):
@@ -327,14 +327,12 @@ class SymmetricMetrics(Metrics):
             x_embed_restricted += x_embed_cont
             y_embed_restricted += y_embed_cont
 
-        x_embed_restricted = x_embed_restricted.unsqueeze(1) #(group.order, 1, hidden)
-        y_embed_restricted = y_embed_restricted.unsqueeze(0) # (1, group.order, hidden)
-
         hidden = self.compute_hidden_from_embeds(x_embed_restricted, y_embed_restricted, model)
 
         logits = hidden @ model.W_U
 
         loss = loss_fn(logits, self.all_labels).item()
+        
         return loss
 
     def total_excluded_loss(self, model, key_reps):
@@ -356,9 +354,6 @@ class SymmetricMetrics(Metrics):
 
             x_embed_excluded -= x_embed_cont
             y_embed_excluded -= y_embed_cont
-
-        x_embed_excluded = x_embed_excluded.unsqueeze(1) #(group.order, 1, hidden)
-        y_embed_excluded = y_embed_excluded.unsqueeze(0) # (1, group.order, hidden)
 
         hidden = self.compute_hidden_from_embeds(x_embed_excluded, y_embed_excluded, model)
         logits = hidden @ model.W_U
