@@ -22,22 +22,23 @@ def to_numpy(tensor, flat=False):
     else:
         return tensor.detach().cpu().numpy()
 
-def imshow(tensor, input1=None, input2=None, animation_name='Snapshot', **kwargs):
+def imshow(tensor, input1=None, input2=None, animation_name='Snapshot', save=False, **kwargs):
     # if tensor.shape[0]==p*p:
     #     tensor = unflatten_first(tensor)
-    tensor = torch.squeeze(tensor)
-    px.imshow(to_numpy(tensor, flat=False), 
-              labels={'x':input2, 'y':input1, 'animation_name':animation_name}, 
-              **kwargs).show()
+    #tensor = torch.squeeze(tensor)
+    fig = px.imshow(to_numpy(tensor, flat=False), 
+                labels={'x':input2, 'y':input1, 'animation_name':animation_name},
+                color_continuous_scale='RdBu', color_continuous_midpoint=0.0, 
+                **kwargs)
+    fig.show()
+    if save:
+        print('Saving to', save)
+        fig.write_image(save)
 
 # Set default colour scheme
 imshow_pos = partial(imshow, color_continuous_scale='Blues')
 # Creates good defaults for showing divergent colour scales (ie with both 
 # positive and negative values, where 0 is white)
-
-imshow = partial(imshow, color_continuous_scale='RdBu', color_continuous_midpoint=0.0)
-# Presets a bunch of defaults to imshow to make it suitable for showing heatmaps 
-# of activations with x axis being input 1 and y axis being input 2.
 
 def imshow_fourier(tensor, fourier_basis_names, title='', animation_name='snapshot', facet_labels=[], **kwargs):
     # Set nice defaults for plotting functions in the 2D fourier basis
