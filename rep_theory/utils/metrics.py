@@ -7,7 +7,7 @@ class Metrics():
     """
     A class to track metrics during training and testing.
     """
-    def __init__(self, cfg, group, training, track_metrics, train_labels=None, test_data=None, test_labels=None):
+    def __init__(self, group, training, track_metrics, train_labels=None, test_data=None, test_labels=None, cfg=None):
         """
         Initialise the metrics class.
 
@@ -85,13 +85,21 @@ class SymmetricMetrics(Metrics):
     """
     def __init__(self, group, training, track_metrics, train_labels=None, test_data=None, test_labels=None, cfg=None):
 
-        super().__init__(cfg, group, training, track_metrics, train_labels, test_data, test_labels)
+        super().__init__(group, training, track_metrics, train_labels, test_data, test_labels, cfg)
 
         if track_metrics:
             for rep_name in self.group.irreps.keys():
                 self.group.irreps[rep_name].hidden_reps_xy = self.group.irreps[rep_name].rep[self.all_labels].reshape(self.group.order*self.group.order, -1)
                 self.group.irreps[rep_name].hidden_reps_xy_orth = torch.linalg.qr(self.group.irreps[rep_name].hidden_reps_xy)[0]
 
+
+    def determine_key_reps(self, model):
+        self.cfg['key_reps'] = []
+        test_logits, all_logits = self.get_test_all_logits(model)
+        for rep_name in self.group.irreps.keys():
+            if self.logit_trace_similarity(all_logits, self.group.irreps[rep_name].logit_trace_tensor_cube) > 0.05:
+                self.cfg['key_reps'].append(rep_name)
+        return self.cfg['key_reps']
 
     def get_metrics(self, model, train_logits=None, train_loss=None):
         """

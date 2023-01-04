@@ -1,0 +1,17 @@
+{
+    "model": "BilinearNet",
+    "group": "SymmetricGroup",
+    "group_parameter": 6,
+    "seed": 1,
+    "frac_train" : 0.25,
+    "layers": {
+        "embed_dim": 256
+    },
+    "lr" : 1e-3,
+    "weight_decay" : 1 ,
+    "num_epochs" : 100000,
+    "metrics": {
+        "class": "SymmetricMetrics",
+        "key_reps": []
+    }
+}

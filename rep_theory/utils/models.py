@@ -7,6 +7,15 @@ import numpy as np
 import json
 
 
+import transformer_lens
+import transformer_lens.utils as utils
+from transformer_lens.hook_points import (
+    HookedRootModule,
+    HookPoint,
+)  # Hooking utilities
+from transformer_lens import HookedTransformer, HookedTransformerConfig, FactoredMatrix, ActivationCache
+
+
 # Define Models
 
 class BilinearNet(HookedRootModule):
@@ -87,84 +96,37 @@ class OneLayerMLP(HookedRootModule):
         return out
 
 
-# class BetterOneLayerMLP(HookedRootModule):
-#     def __init__(self, layers, n, seed=0):
-#         # embed_dim: dimension of the embedding
-#         # hidden : hidden dimension size
-#         # n : group order
-#         super().__init__()
-#         torch.manual_seed(seed)
+class Transformer(HookedTransformer):
+    # Hacky subclass of TransformerLens' Transformer to tokenize input data correctly.
+    def __init__(self, layers, n, seed=0):
+        cfg = HookedTransformerConfig(
+        n_layers = 1,
+        n_heads = 4,
+        d_model = 128,
+        d_head = 32,
+        d_mlp = 512,
+        act_fn = "relu",
+        normalization_type=None,
+        d_vocab=n+1,
+        d_vocab_out=n,
+        n_ctx=3,
+        init_weights=True,
+        device="cuda",
+        seed = seed,
+    )
+        super().__init__(cfg)
+        self.n = n
 
-#         embed_dim = layers['embed_dim']
+    def forward(self, data):
+        x = data[:, 0]
+        y = data[:, 1]
+        equals_vector = self.n*torch.ones_like(x)
+        data = torch.stack((x, y, equals_vector), dim=1).long()
+        logits = super().forward(data)
+        if len(logits.shape) == 3:
+            logits = logits[:, -1]
+        return logits
 
-#         # xavier initialise parameters
-#         self.W_x = nn.Parameter(torch.randn(n, embed_dim)/np.sqrt(embed_dim))
-#         self.W_y = nn.Parameter(torch.randn(n, embed_dim)/np.sqrt(embed_dim))
-#         self.relu = nn.ReLU()
-#         self.W_U = nn.Parameter(torch.randn(embed_dim, n)/np.sqrt(embed_dim))
-
-#         # hookpoints
-#         self.x_embed = HookPoint()
-#         self.y_embed = HookPoint()
-#         self.embed_stack = HookPoint()
-#         self.hidden = HookPoint()
-
-#         # We need to call the setup function of HookedRootModule to build an 
-#         # internal dictionary of modules and hooks, and to give each hook a name
-#         super().setup()
-
-#     def forward(self, data):
-#         x = data[:, 0] # (batch)
-#         x_embed = self.x_embed(self.W_x[x]) # (batch, embed_dim)
-#         y = data[:, 1] # (batch)
-#         y_embed = self.y_embed(self.W_y[y]) # (batch, embed_dim)
-#         embed_stack = x_embed + y_embed # (batch, embed_dim)
-#         hidden = self.hidden(self.relu(embed_stack)) # (batch, embed_dim)
-#         logits = hidden @ self.W_U # (batch, n)
-#         return logits
-
-# class BetterTwoLayerMLP(HookedRootModule):
-#     def __init__(self, layers, n, seed=0):
-#         # embed_dim: dimension of the embedding
-#         # hidden : hidden dimension size
-#         # n : group order
-#         super().__init__()
-#         torch.manual_seed(seed)
-
-#         embed_dim = layers['embed_dim']
-#         hidden_dim = layers['hidden_dim']
-
-#         # xavier initialise parameters
-#         self.W_x = nn.Parameter(torch.randn(n, embed_dim)/np.sqrt(embed_dim))
-#         self.W_y = nn.Parameter(torch.randn(n, embed_dim)/np.sqrt(embed_dim))
-#         self.relu = nn.ReLU()
-#         self.W = nn.Parameter(torch.randn(embed_dim, hidden_dim)/np.sqrt(embed_dim))
-#         self.relu2 = nn.ReLU()
-#         self.W_U = nn.Parameter(torch.randn(hidden_dim, n)/np.sqrt(hidden_dim))
-
-#         # hookpoints
-#         self.x_embed = HookPoint()
-#         self.y_embed = HookPoint()
-#         self.embed_stack = HookPoint()
-#         self.hidden = HookPoint()
-
-#         # We need to call the setup function of HookedRootModule to build an 
-#         # internal dictionary of modules and hooks, and to give each hook a name
-#         super().setup()
-
-#     def forward(self, data):
-#         x = data[:, 0] # (batch)
-#         x_embed = self.x_embed(self.W_x[x]) # (batch, embed_dim)
-#         y = data[:, 1] # (batch)
-#         y_embed = self.y_embed(self.W_y[y]) # (batch, embed_dim)
-#         embed_stack = x_embed + y_embed # (batch, embed_dim)
-#         hidden1 = self.hidden(self.relu(embed_stack)) # (batch, embed_dim)
-#         hidden2 = self.relu2(hidden1 @ self.W) # (batch, hidden_dim)
-#         logits = hidden2 @ self.W_U # (batch, n)
-#         return logits
-
-
-# Generate Data
 
 def generate_train_test_data(group, frac_train, seed=False):
     data = group.get_all_data(seed).cuda()

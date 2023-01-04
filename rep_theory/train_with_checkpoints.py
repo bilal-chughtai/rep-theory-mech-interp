@@ -1,30 +1,35 @@
 import sys
-sys.path.append('../')
-
 import torch
-from tqdm.notebook import tqdm
-
-# plotting
-import plotly.io as pio
-pio.renderers.default = "vscode"
-
-# my own tooling
+from tqdm import tqdm
 from utils.plotting import *
 from utils.groups import *
 from utils.models import *
 from utils.metrics import *
 from utils.config import load_cfg
-
+from utils.checkpoints import save_checkpoint
 import wandb
+import argparse
+
+# command line arguments
+parser = argparse.ArgumentParser()
+parser.add_argument('--task_dir', type=str, default='experiments/1L_MLP_sym_S5')
+parser.add_argument('--save_every', type=int, default=100)
+
+
+args = parser.parse_args()
+
+
+task_dir = args.task_dir
+save_every = args.save_every
+
+
 
 if torch.cuda.is_available:
-  print('CUDA available!')
+    print('CUDA available!')
 else:
-  print('CUDA not available!')
+    print('CUDA not available!')
 
 track_metrics = False
-
-task_dir = "experiments/Tranformer_S5"
 
 print(f'Training {task_dir}')
 
@@ -34,7 +39,7 @@ seed, frac_train, layers, lr, group_param, weight_decay, num_epochs, group_type,
 print('Initializing group...')
 group = group_type(group_param, init_all=track_metrics)
 
-config = {
+wb_config = {
     "seed": seed,
     "frac_train": frac_train,
     "layers": layers,
@@ -46,29 +51,24 @@ config = {
     "architecture_type": architecture_type    
 }
 
-wb_project_name = f'{group.__class__.__name__}RepTheory'
+wb_project_name = f'{group.__class__.__name__}RepTheoryBatch'
 
-wandb.init(project=wb_project_name, entity="bilal-experiments", config=config)
+wandb.init(project=wb_project_name, entity="bilal-experiments", config=wb_config)
 
 train_data, test_data, train_labels, test_labels = generate_train_test_data(group, frac_train, seed)
-
-train_losses = []
-test_losses = []
-train_accs = []
-test_accs = []
 
 print('Initializing model...')
 model = architecture_type(layers, group.order, seed)
 model.cuda()
+
 metrics = metric_obj(group, True, track_metrics, train_labels, test_data, test_labels, metric_cfg)
+
 optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
 
-
 def cleanup():
-    lines([train_losses, test_losses], log_y=True, labels=['train loss', 'test loss'], save=f"{task_dir}/loss.png")
-    lines([train_accs, test_accs], log_y=False, labels=['train acc', 'test acc'], save=f"{task_dir}/acc.png")
-    torch.save(model.state_dict(), f"{task_dir}/model.pt")
-
+    print('Saving final model...')
+    save_checkpoint(model, num_epochs, task_dir, final=True)
+    print('Done.')
 
 try:
     print('Training...')
@@ -78,19 +78,18 @@ try:
         train_loss.backward()
         optimizer.step()
         optimizer.zero_grad()
-        train_losses.append(train_loss.item())
-        with torch.inference_mode():
-            metric = metrics.get_metrics(model, train_logits, train_loss)
-            test_losses.append(metric['test_loss'])
-            train_accs.append(metric['train_acc'])
-            test_accs.append(metric['test_acc'])
-            wandb.log(metric)
 
-        if epoch%1000 == 0:
-            print(f"Epoch:{epoch}, Train: L: {train_losses[-1]:.6f} A: {train_accs[-1]*100:.4f}%, Test: L: {test_losses[-1]:.6f} A: {test_accs[-1]*100:.4f}%")
+        if epoch%100 == 0:
+            with torch.inference_mode():
+                metric = metrics.get_metrics(model, train_logits, train_loss)
+                wandb.log(metric)
+        
+        if epoch%save_every == 0:
+            save_checkpoint(model, epoch, task_dir)
+
     cleanup()
-
 except KeyboardInterrupt:
     print('Interrupted...')
     cleanup()
     sys.exit(0)
+
