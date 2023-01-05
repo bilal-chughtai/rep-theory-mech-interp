@@ -46,16 +46,13 @@ metrics = metric_obj(group, True, track_metrics, train_labels, test_data, test_l
 
 print('Evaluating...')
 
-# Get a list of all the checkpoints
-checkpoints = [f for f in os.listdir(checkpoint_dir) if os.path.isfile(os.path.join(checkpoint_dir, f))]
-epochs = [int(f.split('_')[1].split('.')[0]) for f in checkpoints]
 
 
 # Analyse final model first
-model = load_checkpoint(task_dir, final=True)
+model = load_checkpoint(model, task_dir, final=True)
 
 # determine the key reps
-metrics.determine_key_reps(model)
+#metrics.determine_key_reps(model)
 
 with torch.inference_mode():
         train_logits = model(train_data)
@@ -73,6 +70,17 @@ with open(os.path.join(task_dir, 'summary_metrics.json'), 'w') as f:
 
 # Create a dataframe to store the metrics
 df = pd.DataFrame()
+
+
+# Check if there are any checkpoints
+if not os.path.exists(checkpoint_dir):
+    print('No checkpoints found')
+    sys.exit()
+
+# Get a list of all the checkpoints
+checkpoints = [f for f in os.listdir(checkpoint_dir) if os.path.isfile(os.path.join(checkpoint_dir, f))]
+epochs = [int(f.split('_')[1].split('.')[0]) for f in checkpoints]
+
 
 for epoch in epochs:
     # Load the checkpoint

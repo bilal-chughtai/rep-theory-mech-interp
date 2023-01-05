@@ -1,5 +1,6 @@
 venv/
 __pycache__
 wandb/
-batch_experiments/
-*.pt
+rep_theory/batch_experiments/**/*.pt
+rep_theory/experiments/**/*.pt
+rep_theory/batch_experiments/

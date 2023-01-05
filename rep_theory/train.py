@@ -24,7 +24,7 @@ else:
 
 track_metrics = False
 
-task_dir = "experiments/Tranformer_S5"
+task_dir = "experiments/1L_MLP_C118"
 
 print(f'Training {task_dir}')
 

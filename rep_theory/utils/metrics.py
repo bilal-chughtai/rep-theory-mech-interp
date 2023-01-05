@@ -7,7 +7,7 @@ class Metrics():
     """
     A class to track metrics during training and testing.
     """
-    def __init__(self, group, training, track_metrics, train_labels=None, test_data=None, test_labels=None, cfg=None):
+    def __init__(self, group, training, track_metrics, train_labels=None, test_data=None, test_labels=None, cfg={}):
         """
         Initialise the metrics class.
 
@@ -30,33 +30,14 @@ class Metrics():
         self.all_data = all_data[:, :2]
         self.all_labels = all_data[:, 2]
         self.cfg = cfg
+
+        if track_metrics:
+            for rep_name in self.group.irreps.keys():
+                self.group.irreps[rep_name].hidden_reps_xy = self.group.irreps[rep_name].rep[self.all_labels].reshape(self.group.order*self.group.order, -1)
+                self.group.irreps[rep_name].hidden_reps_xy_orth = torch.linalg.qr(self.group.irreps[rep_name].hidden_reps_xy)[0]
+
     
-    def get_accuracy(self, logits, labels):
-        """
-        Compute accuracy of model.
 
-        Args:
-            logits (torch.tensor): (batch, group.order) tensor of logits
-            labels (torch.tensor): (batch) tensor of labels
-
-        Returns:
-            float: accuracy
-        """
-        return ((logits.argmax(1)==labels).sum()/len(labels)).item()
-
-    def get_test_all_logits(self, model):
-        """
-        Compute logits for test and all data.
-
-        Args:
-            model(nn.Module): neural network
-
-        Returns:
-            tuple: (test_logits, all_logits)
-        """
-        test_logits = model(self.test_data)
-        all_logits = model(self.all_data)
-        return test_logits, all_logits
 
     def get_standard_metrics(self, test_logits, train_logits, train_loss):
         """
@@ -78,24 +59,12 @@ class Metrics():
         return metrics
 
 
-class SymmetricMetrics(Metrics):
-    """
-    A class to track metrics during training and testing for symmetric group tasks.
 
-    """
-    def __init__(self, group, training, track_metrics, train_labels=None, test_data=None, test_labels=None, cfg=None):
-
-        super().__init__(group, training, track_metrics, train_labels, test_data, test_labels, cfg)
-
-        if track_metrics:
-            for rep_name in self.group.irreps.keys():
-                self.group.irreps[rep_name].hidden_reps_xy = self.group.irreps[rep_name].rep[self.all_labels].reshape(self.group.order*self.group.order, -1)
-                self.group.irreps[rep_name].hidden_reps_xy_orth = torch.linalg.qr(self.group.irreps[rep_name].hidden_reps_xy)[0]
-
+        
 
     def determine_key_reps(self, model):
         self.cfg['key_reps'] = []
-        test_logits, all_logits = self.get_test_all_logits(model)
+        all_logits = self.get_all_logits(model)
         for rep_name in self.group.irreps.keys():
             if self.logit_trace_similarity(all_logits, self.group.irreps[rep_name].logit_trace_tensor_cube) > 0.05:
                 self.cfg['key_reps'].append(rep_name)
@@ -116,7 +85,8 @@ class SymmetricMetrics(Metrics):
         metrics = {}
 
         if self.training:
-            test_logits, all_logits = self.get_test_all_logits(model)
+            test_logits = self.get_test_logits(model)
+            all_logits = self.get_all_logits(model)
             metrics = self.get_standard_metrics(test_logits, train_logits, train_loss)
         else:
             all_logits = model(self.all_data)
@@ -130,9 +100,9 @@ class SymmetricMetrics(Metrics):
             # reps
             for rep_name in self.group.irreps.keys():
                 metrics[f'logit_{rep_name}_rep_trace_similarity'] = self.logit_trace_similarity(all_logits, self.group.irreps[rep_name].logit_trace_tensor_cube)
-                metrics[f'percent_x_embed_{rep_name}_rep'], metrics[f'percent_std_x_embed_{rep_name}_rep'], metrics[f'percent_y_embed_{rep_name}_rep'], metrics[f'percent_std_y_embed_{rep_name}_rep']= self.percent_total_embed(model, self.group.irreps[rep_name].orth_rep)
-                metrics[f'percent_unembed_{rep_name}_rep'], metrics[f'percent_std_unembed_{rep_name}_rep']  = self.percent_unembed(model, self.group.irreps[rep_name].orth_rep)
-                metrics[f'percent_hidden_{rep_name}_rep'], metrics[f'percent_std_hidden_{rep_name}_rep'] = self.percent_hidden(model, self.group.irreps[rep_name].hidden_reps_xy_orth)
+                metrics[f'percent_x_embed_{rep_name}_rep'], metrics[f'percent_y_embed_{rep_name}_rep'] = self.percent_total_embed(model, self.group.irreps[rep_name].orth_rep)
+                metrics[f'percent_unembed_{rep_name}_rep']  = self.percent_unembed(model, self.group.irreps[rep_name].orth_rep)
+                metrics[f'percent_hidden_{rep_name}_rep'] = self.percent_hidden(model, self.group.irreps[rep_name].hidden_reps_xy_orth)
                 metrics[f'excluded_loss_{rep_name}_rep'] = self.excluded_loss(model, self.group.irreps[rep_name].orth_rep)
 
             metrics['restricted_loss'] = self.restricted_loss(model, self.cfg['key_reps'])
@@ -172,12 +142,11 @@ class SymmetricMetrics(Metrics):
         Returns:
             (float, float): (total percent, standard deviation over matrix elements of orthonomal representation)
 
-        # TODO: the std is not that meaningful here
         """
         norm_U = model.W_U.pow(2).sum()
         coefs_U = orth_rep.T @ model.W_U.T
         conts_U = coefs_U.pow(2).sum(-1) / norm_U
-        return conts_U.sum(), conts_U.std()
+        return conts_U.sum()
 
     def percent_total_embed(self, model, orth_rep):
         """
@@ -188,7 +157,7 @@ class SymmetricMetrics(Metrics):
             orth_rep (torch.tensor): orthonormal representation
 
         Returns:
-            (float, float, float, float): (total percent x, std x, total percent y, std y)
+            (float, float, float, float): (total percent x, total percent y)
         """
         embed_dim = model.W_x.shape[1]
         x_embed = model.x_embed
@@ -203,7 +172,7 @@ class SymmetricMetrics(Metrics):
         conts_x = coefs_x.pow(2).sum(-1) / norm_x
         conts_y = coefs_y.pow(2).sum(-1) / norm_y
 
-        return conts_x.sum(), conts_x.std(), conts_y.sum(), conts_y.std()
+        return conts_x.sum(), conts_y.sum()
         
     def percent_hidden(self, model, hidden_reps_xy_orth):
         """
@@ -223,25 +192,25 @@ class SymmetricMetrics(Metrics):
         coefs_xy = hidden_reps_xy_orth.T @ hidden
         xy_conts = coefs_xy.pow(2).sum(-1) / hidden_norm
 
-        return xy_conts.sum(), xy_conts.std()
+        return xy_conts.sum()#, xy_conts.std()
 
 
-    def loss_on_alternating_group(self, model):
-        """
-        Compute the loss on the alternating group.
+    # def loss_on_alternating_group(self, model):
+    #     """
+    #     Compute the loss on the alternating group.
 
-        Args:
-            model (nn.Module): neural network
+    #     Args:
+    #         model (nn.Module): neural network
 
-        Returns:
-            float: loss on alternating group
-        """
-        alternating_indices = [i for i in range(self.group.order) if self.group.signature(i) == 1]
-        alternating_data = self.group.get_subset_of_data(alternating_indices).cuda()
-        alternating_data, alternating_labels = alternating_data[:, :2], alternating_data[:, 2]
-        alternating_logits = model(alternating_data)
-        alternating_loss = loss_fn(alternating_logits, alternating_labels).item()
-        return alternating_loss
+    #     Returns:
+    #         float: loss on alternating group
+    #     """
+    #     alternating_indices = [i for i in range(self.group.order) if self.group.signature(i) == 1]
+    #     alternating_data = self.group.get_subset_of_data(alternating_indices).cuda()
+    #     alternating_data, alternating_labels = alternating_data[:, :2], alternating_data[:, 2]
+    #     alternating_logits = model(alternating_data)
+    #     alternating_loss = loss_fn(alternating_logits, alternating_labels).item()
+    #     return alternating_loss
 
     def loss_all(self, all_logits):
         """
@@ -391,70 +360,42 @@ class SymmetricMetrics(Metrics):
 
         return sum_of_square_weights
 
+    def get_accuracy(self, logits, labels):
+        """
+        Compute accuracy of model.
 
+        Args:
+            logits (torch.tensor): (batch, group.order) tensor of logits
+            labels (torch.tensor): (batch) tensor of labels
 
+        Returns:
+            float: accuracy
+        """
+        return ((logits.argmax(1)==labels).sum()/len(labels)).item()
 
+    def get_all_logits(self, model):
+        """
+        Compute logits for all data.
 
+        Args:
+            model(nn.Module): neural network
 
-class CyclicMetrics(Metrics):
-    def __init__(self, group, training, track_metrics, train_labels=None, test_data=None, test_labels=None, cfg=None):
-        super().__init__(group, training, track_metrics, train_labels, test_data, test_labels)
-        self.key_freqs = cfg['key_freqs']
+        Returns:
+            torch.tensor: (batch, group.order) tensor of logits for all data
+        """
+        return model(self.all_data)
+    
+    def get_test_logits(self, model):
+        """
+        Compute logits for test data.
 
-    def get_metrics(self, model, train_logits=None, train_loss=None):
-        test_logits, all_logits = self.get_test_all_logits(model)
-        metrics = self.get_standard_metrics(test_logits, train_logits, train_loss)
-        if self.track_metrics:
-            embedding_percent_list, metrics['percent_embeddings_explained_by_key_freqs'] = self.percentage_embeddings_explained_by_key_freqs(model, self.key_freqs)
-            for i, freq in enumerate(self.key_freqs):
-                metrics[f'percent_embeddings_explained_by_freq_{freq}'] = embedding_percent_list[i]
-        return metrics
+        Args:
+            model(nn.Module): neural network
 
-    def percentage_embeddings_explained_by_key_freqs(self, model, key_freqs):
-        W_x_norm_embeddings = (model.W_x.T @ self.group.fourier_basis.T).pow(2).sum(0)
-        W_y_norm_embeddings = (model.W_y.T @ self.group.fourier_basis.T).pow(2).sum(0)
-        W_U_norm_embeddings = (model.W_U @ self.group.fourier_basis.T).pow(2).sum(0)
-        W_x_norm_embedding_total = W_x_norm_embeddings.sum()
-        W_y_norm_embedding_total = W_y_norm_embeddings.sum()
-        W_U_norm_embedding_total = W_U_norm_embeddings.sum()
-        total = W_x_norm_embedding_total + W_y_norm_embedding_total + W_U_norm_embedding_total
-        percent_embed_by_key_freq = []
-        percent_embed_all_freqs = 0
-        for freq in key_freqs:
-            x = W_x_norm_embeddings[2*freq-1] + W_x_norm_embeddings[2*freq]
-            x += W_y_norm_embeddings[2*freq-1] + W_y_norm_embeddings[2*freq]
-            x += W_U_norm_embeddings[2*freq-1] + W_U_norm_embeddings[2*freq]
-            percent_embed_by_key_freq.append((x/total).item())
-            percent_embed_all_freqs += (x/total).item()
-        return percent_embed_by_key_freq, percent_embed_all_freqs
-
-
-
-
-
-    def excluded_loss_mod_add(self, cfg):
-
-        key_freqs = cfg['key_freqs']
-        fourier_logits = self.logits @ self.group.fourier_basis.T # (batch, position) @ (position, frequency) -> (batch, frequency)
-        fourier_logits = fourier_logits.reshape(self.group.order, self.group.order, self.group.index)
-
-
-        for freq in key_freqs:
-            if not freq in self.data['excluded_loss_mod_add']:
-                self.data['excluded_loss_mod_add'][freq] = []
-            fourier_logits_new = fourier_logits.clone()
-            cos_logits_freq = fft2d(fourier_logits_new[:, :, 2*freq-1].unsqueeze(dim=-1), self.group.fourier_basis)
-            sin_logits_freq = fft2d(fourier_logits_new[:, :, 2*freq].unsqueeze(dim=-1), self.group.fourier_basis)
-
-
-            fourier_logits_new[:, :, 2*freq-1] -= fft2d(cos_logits_freq, self.group.fourier_basis, inverse=True)
-            fourier_logits_new[:, :, 2*freq] -= fft2d(sin_logits_freq, self.group.fourier_basis, inverse=True)
-
-            fourier_logits_new = fourier_logits_new.reshape(self.group.order*self.group.order, self.group.index)
-            logits_new = fourier_logits_new @ self.group.fourier_basis
-            loss_new = loss_fn(logits_new, self.all_labels)
-            self.data['excluded_loss_mod_add'][freq].append(loss_new.item())
-
+        Returns:
+            torch.tensor: (batch, group.order) tensor of logits for test data
+        """
+        return model(self.test_data)
 
 
 

@@ -4,11 +4,11 @@ def save_checkpoint(model, epoch, task_dir, final=False):
     path = f'{task_dir}/checkpoints/epoch_{epoch}.pt'
     if final:
         path = f'{task_dir}/model.pt'
-    torch.save(model, path)
+    torch.save(model.state_dict(), path)
 
-def load_checkpoint(task_dir, epoch=None, final=False):
+def load_checkpoint(model, task_dir, epoch=None, final=False):
     path = f'{task_dir}/checkpoints/epoch_{epoch}.pt'
     if final:
         path = f'{task_dir}/model.pt'
-    model = torch.load(path)
+    model.load_state_dict(torch.load(path), strict=False)
     return model
