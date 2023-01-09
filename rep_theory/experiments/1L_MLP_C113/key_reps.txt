@@ -1,0 +1,8 @@
+freq_7
+freq_14
+freq_16
+freq_17
+freq_22
+freq_32
+freq_44
+freq_50

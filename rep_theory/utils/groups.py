@@ -162,37 +162,6 @@ class Group:
             inverses[i] = self.inverse(i)
         return inverses
 
-    # TODO: refactor this into a "CyclicRepresentation" class
-
-    # Fourier basis for cylic-y groups. Should refactor into a different parent class eventually.
-    # def compute_fourier_basis(self):
-    #     # compute a (frequency, position) tensor encoding the fourier basis
-    #     fourier_basis = []
-    #     fourier_basis.append(torch.ones(self.index)/np.sqrt(self.index))
-    #     fourier_basis_names = ['Const']
-    #     # Note that if p is even, we need to explicitly add a term for cos(kpi), ie 
-    #     # alternating +1 and -1
-    #     for i in range(1, self.fourier_order):
-    #         fourier_basis.append(torch.cos(2*torch.pi*torch.arange(self.index)*i/self.index))
-    #         fourier_basis.append(torch.sin(2*torch.pi*torch.arange(self.index)*i/self.index))
-    #         fourier_basis[-2]/=fourier_basis[-2].norm()
-    #         fourier_basis[-1]/=fourier_basis[-1].norm()
-    #         fourier_basis_names.append(f'cos {i}')
-    #         fourier_basis_names.append(f'sin {i}')
-
-    #     self.fourier_basis = torch.stack(fourier_basis, dim=0).cuda()
-    #     self.fourier_basis_names = fourier_basis_names  
-    
-    # def animate_fourier_basis(self):
-    #     animate_lines(self.fourier_basis, snapshot_index=self.fourier_basis_names, snapshot='Fourier Component', title='Graphs of Fourier Components (Use Slider)')
-    
-    # def compute_trivial_rep(self):
-    #     self.trivial_reps = torch.ones(self.order, 1, 1).cuda()
-    #     self.trivial_reps_orth = self.trivial_reps.reshape(self.order, -1)
-    #     self.trivial_reps_orth = torch.linalg.qr(self.trivial_reps_orth)[0]
-
-    # def trivial_rep(self, x):
-    #     return self.trivial_reps[x]
 
 class CyclicGroup(Group):
     """
@@ -271,17 +240,59 @@ class DihedralGroup(Group):
     Dihedral group of order 2*index. First half of the elements are rotations, second are reflections. 
     i.e. indexed as [e, r, r^2, ..., r^p, s, rs, r^2s, ..., r^ps]
     """
-    def __init__(self, index):
+    def __init__(self, index, init_all=False):
         """
         Initialise the group.
 
         Args:
             index (int): Index of the group. Order is 2*index.
         """
-        super().__init__(index = index, order = 2*index)        
-        self.compute_fourier_basis()
         self.identity = 0
         self.acronym = 'D'
+        super().__init__(index = index, order = 2*index)        
+
+        if init_all:
+
+            # get all data to compute metrics
+            self.all_data = self.get_all_data()[:, :2]
+
+            # parameters for representation initialisation
+            rep_params = {
+                'index': self.index,
+                'order': self.order,
+                'multiplication_table': self.multiplication_table,
+                'inverses': self.inverses,
+                'all_data': self.all_data,
+                'group_acronym': self.acronym
+            }
+
+            # initialise representations
+            self.irreps = {}
+            
+            # trivial representation
+            trivial_rep = TrivialRepresentation([], rep_params)
+            self.irreps['trivial'] = trivial_rep
+
+            # if index is even, we havn't really coded up the representations
+            if self.index%2 == 0:
+                print('Warning: Dihedral group of even order not fully implemented')
+                return
+            
+            if self.index%2 != 0:
+
+                # add the sign representation
+                signatures = torch.zeros(self.order)
+                signatures[:self.index] = +1
+                signatures[self.index:] = -1
+                sign_rep = SignRepresentation([signatures], rep_params)
+                self.irreps['sign'] = sign_rep
+        
+            # 2d representations
+            for k in range(0, int((self.index-1)/2)):
+                name = f'freq_{k}'
+                rep = Dihedral2dRepresentation([k], rep_params, name)
+                self.irreps[name] = rep
+
 
     def idx_to_cpts(self, x):
         """

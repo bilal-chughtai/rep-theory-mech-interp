@@ -66,7 +66,7 @@ class Metrics():
         self.cfg['key_reps'] = []
         all_logits = self.get_all_logits(model)
         for rep_name in self.group.irreps.keys():
-            if self.logit_trace_similarity(all_logits, self.group.irreps[rep_name].logit_trace_tensor_cube) > 0.05:
+            if self.logit_trace_similarity(all_logits, self.group.irreps[rep_name].logit_trace_tensor_cube) > 0.02:
                 self.cfg['key_reps'].append(rep_name)
         return self.cfg['key_reps']
 

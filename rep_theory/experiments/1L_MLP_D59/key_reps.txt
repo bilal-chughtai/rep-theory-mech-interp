@@ -1,0 +1,9 @@
+sign
+freq_0
+freq_7
+freq_9
+freq_10
+freq_15
+freq_18
+freq_19
+freq_20

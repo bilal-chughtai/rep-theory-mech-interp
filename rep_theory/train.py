@@ -16,6 +16,7 @@ from utils.metrics import *
 from utils.config import load_cfg
 
 import wandb
+import transformers
 
 if torch.cuda.is_available:
   print('CUDA available!')
@@ -24,12 +25,12 @@ else:
 
 track_metrics = False
 
-task_dir = "experiments/1L_MLP_C118"
+task_dir = "experiments/Transformer_S5"
 
 print(f'Training {task_dir}')
 
 print('Loading cfg...')
-seed, frac_train, layers, lr, group_param, weight_decay, num_epochs, group_type, architecture_type, metric_cfg, metric_obj = load_cfg(task_dir)
+seed, frac_train, layers, lr, group_param, weight_decay, num_epochs, group_type, architecture_type = load_cfg(task_dir)
 
 print('Initializing group...')
 group = group_type(group_param, init_all=track_metrics)
@@ -60,15 +61,14 @@ test_accs = []
 print('Initializing model...')
 model = architecture_type(layers, group.order, seed)
 model.cuda()
-metrics = metric_obj(group, True, track_metrics, train_labels, test_data, test_labels, metric_cfg)
+metrics = Metrics(group, True, track_metrics, train_labels, test_data, test_labels)
 optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
-
+#scheduler = transformers.get_cosine_schedule_with_warmup(optimizer, 100, num_epochs)
 
 def cleanup():
     lines([train_losses, test_losses], log_y=True, labels=['train loss', 'test loss'], save=f"{task_dir}/loss.png")
     lines([train_accs, test_accs], log_y=False, labels=['train acc', 'test acc'], save=f"{task_dir}/acc.png")
     torch.save(model.state_dict(), f"{task_dir}/model.pt")
-
 
 try:
     print('Training...')
@@ -79,6 +79,7 @@ try:
         optimizer.step()
         optimizer.zero_grad()
         train_losses.append(train_loss.item())
+        #scheduler.step()
         with torch.inference_mode():
             metric = metrics.get_metrics(model, train_logits, train_loss)
             test_losses.append(metric['test_loss'])

@@ -10,6 +10,7 @@ from utils.checkpoints import save_checkpoint, load_checkpoint
 import wandb
 import argparse
 import pandas as pd
+from tqdm import tqdm
 
 # command line arguments
 parser = argparse.ArgumentParser()
@@ -27,7 +28,7 @@ else:
 print(f'Evaluating {task_dir}')
 
 print('Loading cfg...')
-seed, frac_train, layers, lr, group_param, weight_decay, num_epochs, group_type, architecture_type, metric_cfg, metric_obj = load_cfg(task_dir)
+seed, frac_train, layers, lr, group_param, weight_decay, num_epochs, group_type, architecture_type = load_cfg(task_dir)
 
 track_metrics = True
 
@@ -40,7 +41,7 @@ print('Initializing model...')
 model = architecture_type(layers, group.order, seed)
 model.cuda()
 
-metrics = metric_obj(group, True, track_metrics, train_labels, test_data, test_labels, metric_cfg)
+metrics = Metrics(group, True, track_metrics, train_labels, test_data, test_labels)
 
 
 
@@ -52,7 +53,7 @@ print('Evaluating...')
 model = load_checkpoint(model, task_dir, final=True)
 
 # determine the key reps
-#metrics.determine_key_reps(model)
+metrics.determine_key_reps(model)
 
 with torch.inference_mode():
         train_logits = model(train_data)
@@ -82,9 +83,9 @@ checkpoints = [f for f in os.listdir(checkpoint_dir) if os.path.isfile(os.path.j
 epochs = [int(f.split('_')[1].split('.')[0]) for f in checkpoints]
 
 
-for epoch in epochs:
+for epoch in tqdm(epochs):
     # Load the checkpoint
-    model = load_checkpoint(task_dir, epoch)
+    model = load_checkpoint(model, task_dir, epoch)
     # Evaluate the model
     with torch.inference_mode():
         train_logits = model(train_data)
@@ -102,4 +103,13 @@ for epoch in epochs:
 df = df.sort_values(by='epoch')
 df.to_csv(os.path.join(task_dir, 'metrics.csv'))
 
+# Create a text file listing all the irreps of the group
+with open(os.path.join(task_dir, 'irreps.txt'), 'w') as f:
+    for irrep in group.irreps:
+        f.write(f'{irrep}\n')
+
+# Create a text file listing all the key reps of the group
+with open(os.path.join(task_dir, 'key_reps.txt'), 'w') as f:
+    for irrep in metrics.cfg['key_reps']:
+        f.write(f'{irrep}\n')
         

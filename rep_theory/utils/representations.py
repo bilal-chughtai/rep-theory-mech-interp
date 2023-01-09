@@ -63,8 +63,14 @@ class Representation():
         Returns:
             torch.tensor: (group.order, dim^2) tensor with orthonormal columns en
         """
+        
         orth_rep = rep.reshape(self.order, self.dim * self.dim)
+
+        # TODO: this is a hack to not double count in the cyclic group
+        if self.group_acronym == 'C' and self.dim == 2:
+            orth_rep = orth_rep[:, :2] 
         orth_rep = torch.linalg.qr(orth_rep)[0]
+        
         return orth_rep
 
 
@@ -360,7 +366,6 @@ class Cyclic2dRepresentation(Representation):
         self.friendly_name = name
         super().__init__(compute_rep_params, **init_rep_params)
 
-    # TODO: make this less hacky
     def get_rep_dim(self):
         """
         Get the dimension of the representation.
@@ -375,4 +380,40 @@ class Cyclic2dRepresentation(Representation):
         for i in range(self.order):
             rep[i] = torch.tensor([[np.cos(2*np.pi*i*k/self.order), -np.sin(2*np.pi*i*k/self.order)], 
                                     [np.sin(2*np.pi*i*k/self.order), np.cos(2*np.pi*i*k/self.order)]]).cuda()
+        return rep
+
+class Dihedral2dRepresentation(Representation):
+    """
+    Rotation matrix like representations of the cyclic group.
+    """
+    def __init__(self, compute_rep_params, init_rep_params, name):
+        """
+        Initialise a representation of the symmetric group from a set of generators.
+
+        Args:
+            compute_rep_params (list): list consisting of the k paramater of the representation
+            init_rep_params (dict): standard group parameters needed by the representation, including index, order, multiplication_table, inverses, all_data
+            name (str): name of the representation
+        """
+        self.friendly_name = name
+        super().__init__(compute_rep_params, **init_rep_params)
+
+    # TODO: make this less hacky
+    def get_rep_dim(self):
+        """
+        Get the dimension of the representation.
+
+        Returns:
+            int: dimension of the representation
+        """
+        return 2 
+
+    def compute_rep(self, k):
+        rep = torch.zeros(self.order, 2, 2).cuda()
+        for i in range(self.index):
+            rep[i] = torch.tensor([[np.cos(2*np.pi*i*k/self.index), -np.sin(2*np.pi*i*k/self.index)], 
+                                    [np.sin(2*np.pi*i*k/self.index), np.cos(2*np.pi*i*k/self.index)]]).cuda()
+        for i in range(self.index, self.order):
+            rep[i] = torch.tensor([[np.cos(2*np.pi*i*k/self.index), np.sin(2*np.pi*i*k/self.index)], 
+                                [np.sin(2*np.pi*i*k/self.index), -np.cos(2*np.pi*i*k/self.index)]]).cuda()
         return rep

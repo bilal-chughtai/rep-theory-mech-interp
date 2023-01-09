@@ -15,6 +15,4 @@ def load_cfg(task_dir):
     num_epochs = cfg['num_epochs']
     group_type = eval(cfg['group'])
     architecture_type = eval(cfg['model'])
-    metric_cfg = cfg['metrics']
-    metric_obj = eval(metric_cfg['class'])
-    return seed, frac_train, layers, lr, group_param, weight_decay, num_epochs, group_type, architecture_type, metric_cfg, metric_obj
+    return seed, frac_train, layers, lr, group_param, weight_decay, num_epochs, group_type, architecture_type

@@ -21,6 +21,11 @@ args = parser.parse_args()
 
 task_dir = args.task_dir
 save_every = args.save_every
+# if no checkpoint dir, make it
+checkpoint_dir = os.path.join(task_dir, 'checkpoints')
+if not os.path.exists(checkpoint_dir):
+    os.makedirs(checkpoint_dir)
+    
 
 
 
@@ -34,7 +39,7 @@ track_metrics = False
 print(f'Training {task_dir}')
 
 print('Loading cfg...')
-seed, frac_train, layers, lr, group_param, weight_decay, num_epochs, group_type, architecture_type, metric_cfg, metric_obj = load_cfg(task_dir)
+seed, frac_train, layers, lr, group_param, weight_decay, num_epochs, group_type, architecture_type = load_cfg(task_dir)
 
 print('Initializing group...')
 group = group_type(group_param, init_all=track_metrics)
@@ -61,7 +66,7 @@ print('Initializing model...')
 model = architecture_type(layers, group.order, seed)
 model.cuda()
 
-metrics = metric_obj(group, True, track_metrics, train_labels, test_data, test_labels, metric_cfg)
+metrics = Metrics(group, True, track_metrics, train_labels, test_data, test_labels)
 
 optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
 

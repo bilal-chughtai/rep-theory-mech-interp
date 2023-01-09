@@ -53,10 +53,6 @@ base_cfg = {
         "embed_dim": 256,
         "hidden_dim": 128
     },
-    "metrics": {
-        "class": "SymmetricMetrics"
-    }
-
 }
 
 #1: S5, OneLayerMLP, various seeds - works
@@ -67,20 +63,20 @@ cfg1 = {
     "frac_train" : 0.4, # min needed to generalise on wd = 1
 }
 
-#2: S5, BilinearNet, various seeds - works
+#2: S5, Transformer, various seeds
 cfg2 = {
-    "model": "BilinearNet",
-    "group": "SymmetricGroup",
-    "group_parameter": 5,
-    "frac_train" : 0.5,  # could be reduced
-}
-
-#3: S5, Transformer, various seeds
-cfg3 = {
     "model": "Transformer",
     "group": "SymmetricGroup",
     "group_parameter": 5,
     "frac_train" : 0.6, # yet to determine this number, still loss spiking
+}
+
+#3: S5, BilinearNet, various seeds - works
+cfg3 = {
+    "model": "BilinearNet",
+    "group": "SymmetricGroup",
+    "group_parameter": 5,
+    "frac_train" : 0.5,  # could be reduced
 }
 
 #4: S6, OneLayerMLP, various seeds - works

@@ -1,4 +1,4 @@
-
+from utils.plotting import *
 
 
 def get_history_from_wb(keys, run):
@@ -19,19 +19,18 @@ def get_history_local(keys, run):
     # run is a dataframe
     out = []
     for key in keys:
-        if key not in run.columns():
+        if key not in run.keys():
             raise ValueError(f"Key {key} not a valid metric")
         out.append(run[key].values)
     out.append(run['epoch'].values)
     return out
 
-def lines_from_keys(keys, title, yaxis, labels, save, **kwargs):
-    data = get_history_from_wb(keys)
-    lines(data[:-1], title=title, xaxis="epoch", yaxis=yaxis, labels=labels, show=False, save=save, x=data[-1] **kwargs)
+def lines_from_keys(metrics, keys, title, yaxis, labels, save, **kwargs):
+    data = get_history_local(keys, metrics)
+    lines(data[:-1], title=title, xaxis="epoch", yaxis=yaxis, labels=labels, show=False, save=save, x=data[-1], **kwargs)
 
-def lines_from_template(template, title, yaxis, save, **kwargs):
-    non_trivial_irreps_names = list(group.non_trivial_irreps.keys())
+def lines_from_template(metrics, template, fill_with, title, yaxis, save, **kwargs):
     keys = []
-    for irrep in group.non_trivial_irreps:
+    for irrep in fill_with:
         keys.append(template.format(irrep))
-    lines_from_keys(keys, title, yaxis, non_trivial_irreps_names, save, **kwargs)  
+    lines_from_keys(metrics, keys, title, yaxis, fill_with, save, **kwargs)  

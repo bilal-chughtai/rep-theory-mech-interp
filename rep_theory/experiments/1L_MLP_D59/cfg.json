@@ -1,0 +1,14 @@
+{
+    "model": "OneLayerMLP",
+    "group": "DihedralGroup",
+    "group_parameter": 59,
+    "seed": 1,
+    "frac_train" : 0.3,
+    "layers": {
+        "embed_dim": 256,
+        "hidden_dim": 128
+    },
+    "lr" : 1e-3,
+    "weight_decay" : 1,
+    "num_epochs" : 100000
+}
