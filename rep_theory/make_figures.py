@@ -43,8 +43,6 @@ key_rep_names = []
 with open(os.path.join(task_dir, 'key_reps.txt'), 'r') as f:
     for line in f:
         key_rep_names.append(line.strip())
-key_rep_names.append('sign')
-
 
 non_trivial_irrep_names.remove('trivial')
 print(metrics)     

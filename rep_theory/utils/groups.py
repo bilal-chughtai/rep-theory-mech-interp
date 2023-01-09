@@ -61,6 +61,9 @@ class Group:
         print('Computing multiplication table...')
         filename = f'utils/cache/{self.acronym}{self.index}/{self.acronym}{self.index}_mult_table.pt'
 
+        # check if the directory exists, if not create it
+        if not os.path.exists(os.path.dirname(filename)):
+            os.makedirs(os.path.dirname(filename))
         if os.path.exists(filename):
             print('... loading from file')
             table = torch.load(filename)

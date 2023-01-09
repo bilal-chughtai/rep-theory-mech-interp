@@ -9,4 +9,7 @@ while read line; do
     # Add the line to evaled_experiments.txt
     echo "$line" >> batch_experiments/evaled_experiments.txt
 
+    # Remove the line from ran_experiments.txt
+    sed -i "/$line/d" batch_experiments/ran_experiments.txt
+
 done < batch_experiments/ran_experiments.txt

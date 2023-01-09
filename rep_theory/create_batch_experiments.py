@@ -6,7 +6,7 @@ parent_directory = 'batch_experiments'
 print(f'Creating experiments in {parent_directory}')
 
 acronyms = {
-    "OneLayerMLP": "1L_MLP",
+    "OneLayerMLP": "MLP",
     "Transformer": "T",
     "BilinearNet": "B",
     "SymmetricGroup": "S",
@@ -40,7 +40,6 @@ def create_experiment(cfg):
 
 
 seeds = [1, 2, 3, 4]
-seeds = [1]
 
 def create_on_seeds(base_cfg, cfg):
     for i in seeds:
@@ -50,7 +49,7 @@ def create_on_seeds(base_cfg, cfg):
 
 base_cfg = {
     "lr" : 1e-3,
-    "num_epochs" : 1,
+    "num_epochs" : 100000,
     "weight_decay" : 1,
     "layers": {
         "embed_dim": 256,
@@ -133,7 +132,7 @@ cfgs.append(cfg)
 
 #8: C113, Transformer, various seeds
 cfg = {
-    "model": "OneLayerMLP",
+    "model": "Transformer",
     "group": "CyclicGroup",
     "group_parameter": 113, 
     "frac_train" : 0.3, 
@@ -255,7 +254,7 @@ cfg = {
     "model": "Transformer",
     "group": "AlternatingGroup",
     "group_parameter": 5,
-    "frac_train" : 0.5,
+    "frac_train" : 0.6,
 }
 
 cfgs.append(cfg)
@@ -263,7 +262,7 @@ cfgs.append(cfg)
 #21: A5, BilinearNet, various seeds
 cfg = {
     "model": "BilinearNet",
-    "group": "DihedralGroup",
+    "group": "AlternatingGroup",
     "group_parameter": 5,
     "frac_train" : 0.5,
 }
