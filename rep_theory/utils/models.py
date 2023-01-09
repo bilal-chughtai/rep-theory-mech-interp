@@ -5,6 +5,7 @@ from utils.hook_points import HookPoint, HookedRootModule
 from utils.groups import *
 import numpy as np
 import json
+import sys
 
 
 import transformer_lens
@@ -113,6 +114,10 @@ class Transformer(HookedTransformer):
         super().__init__(cfg)
         self.n = n
 
+        for name, param in self.named_parameters():
+            if "b_" in name:
+                param.requires_grad = False
+
     def forward(self, data):
         x = data[:, 0]
         y = data[:, 1]
@@ -121,6 +126,10 @@ class Transformer(HookedTransformer):
         logits = super().forward(data)
         if len(logits.shape) == 3:
             logits = logits[:, -1]
+
+        # for metrics
+        self.x_embed = self.W_E
+        self.y_embed = self.W_E
         return logits
 
 
@@ -138,8 +147,9 @@ def generate_train_test_data(group, frac_train, seed=False):
 # Loss Function
 
 def loss_fn(logits, labels):
-    loss = F.cross_entropy(logits, labels)
-    return loss
-
-# Load Model Config
+    #loss = F.cross_entropy(logits, labels)
+    logits = logits.to(torch.float64)
+    log_probs = logits.log_softmax(dim=-1)
+    correct_log_probs = log_probs.gather(dim=-1, index=labels[:, None])[:, 0]
+    return -correct_log_probs.mean()
 

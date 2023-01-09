@@ -25,7 +25,7 @@ else:
 
 track_metrics = False
 
-task_dir = "experiments/Transformer_S5"
+task_dir = "experiments/tune_hyperparam"
 
 print(f'Training {task_dir}')
 
@@ -66,8 +66,8 @@ optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_dec
 #scheduler = transformers.get_cosine_schedule_with_warmup(optimizer, 100, num_epochs)
 
 def cleanup():
-    lines([train_losses, test_losses], log_y=True, labels=['train loss', 'test loss'], save=f"{task_dir}/loss.png")
-    lines([train_accs, test_accs], log_y=False, labels=['train acc', 'test acc'], save=f"{task_dir}/acc.png")
+    #lines([train_losses, test_losses], log_y=True, labels=['train loss', 'test loss'], save=f"{task_dir}/loss.png")
+    #lines([train_accs, test_accs], log_y=False, labels=['train acc', 'test acc'], save=f"{task_dir}/acc.png")
     torch.save(model.state_dict(), f"{task_dir}/model.pt")
 
 try:
@@ -82,13 +82,10 @@ try:
         #scheduler.step()
         with torch.inference_mode():
             metric = metrics.get_metrics(model, train_logits, train_loss)
-            test_losses.append(metric['test_loss'])
-            train_accs.append(metric['train_acc'])
-            test_accs.append(metric['test_acc'])
             wandb.log(metric)
 
         if epoch%1000 == 0:
-            print(f"Epoch:{epoch}, Train: L: {train_losses[-1]:.6f} A: {train_accs[-1]*100:.4f}%, Test: L: {test_losses[-1]:.6f} A: {test_accs[-1]*100:.4f}%")
+            print(f"Epoch:{epoch}, Train: L: {metric['train_loss']:.6f} A: {metric['train_acc']*100:.4f}%, Test: L: {metric['test_loss']:.6f} A: {metric['test_acc']*100:.4f}%")
     cleanup()
 
 except KeyboardInterrupt:

@@ -1,12 +1,13 @@
 import os
 import torch
+import numpy as np
 from utils.plotting import *
 from sympy.combinatorics.named_groups import SymmetricGroup as SymPySymmetricGroup
-from sympy.combinatorics import Permutation
+from sympy.combinatorics import Permutation, PermutationGroup
+from scipy.spatial.transform import Rotation as R
 import math
 from tqdm import tqdm
 from utils.representations import *
-import math
 
 class Group:
     """
@@ -601,4 +602,197 @@ class SymmetricGroup(Group):
         signatures = torch.tensor([self.signature(i) for i in range(self.order)]).cuda()
         return signatures
 
+class AlternatingGroup(Group):
+    
+    def __init__(self, index, init_all=False):
+        """
+        Initialise the group. Optionally calculate all other tensors needed to track metrics.
 
+        Args:
+            index (int): Index of group in family of symmetric groups.
+            init_all (bool, optional): If false, only calculate what is required to train. If true, calculate all other tensors needed to track metrics. Defaults to False.
+        """
+
+        self.order = int(math.factorial(index)/2)
+        self.index = index
+
+        if self.index != 5:
+            raise NotImplementedError("Only implemented for index 5")
+
+        # use sympy to generate the group
+        p1 = Permutation(0, 1, 2, 3, 4)
+        p2 = Permutation(1,2)(3,4)
+        self.G = PermutationGroup(p1, p2)
+        self.S = SymPySymmetricGroup(5)
+        A_elements = self.G._elements
+        S_elements = self.S._elements
+
+        #create a dict mapping each index of A to its index in S
+        self.A_to_S = {}
+        for i, a in enumerate(A_elements):
+            for j, s in enumerate(S_elements):
+                if a == s:
+                    self.A_to_S[i] = j
+                    break
+        
+        print(self.A_to_S)
+
+        #create a dict mapping each index of S to its index in A
+        self.S_to_A = {}
+        for i, s in enumerate(S_elements):
+            for j, a in enumerate(A_elements):
+                if s == a:
+                    self.S_to_A[i] = j
+                    break
+
+        # hacky method to find the index of the identity element 
+        self.identity = [i for i in range(self.order) if self.idx_to_perm(i).order() == 1][0]
+
+        self.acronym = 'A'
+
+        # initialise parent class
+        super().__init__(index = index, order = self.order)
+
+        # compute the signatures of the elements
+        self.signatures = self.compute_signatures()
+
+
+        if init_all:
+            # get the group we are a subgroup of
+            self.parent_group = SymmetricGroup(index, init_all=True)
+
+            # get all data to compute metrics
+            self.all_data = self.get_all_data()[:, :2]
+
+            # parameters for representation initialisation
+            rep_params = {
+                'index': self.index,
+                'order': self.order,
+                'multiplication_table': self.multiplication_table,
+                'inverses': self.inverses,
+                'all_data': self.all_data,
+                'group_acronym': self.acronym
+            }
+
+            # initialise representations
+            indices = list(self.A_to_S.values())
+            trivial_rep = RestrictedRepresentation(self.parent_group.irreps['trivial'], indices, 'trivial')
+            standard_rep = RestrictedRepresentation(self.parent_group.irreps['standard'], indices, 'standard')
+            a5_5d_a_rep = RestrictedRepresentation(self.parent_group.irreps['s5_5d_a'], indices, 'a5_5d_a')
+
+            self.irreps = {
+                'trivial': trivial_rep,
+                'standard': standard_rep,
+                'a5_5d_a': a5_5d_a_rep,
+            }
+
+            # http://www.math.toronto.edu/murnaghan/courses/mat445/mwesslen.pdf
+
+            a5_3d_a_generators = {}
+            a = np.sqrt(8/(5+np.sqrt(5)))
+            
+            rot = R.from_rotvec(2*np.pi/5 * a*np.array([1/2, (1+np.sqrt(5))/5, 0]))
+            a5_3d_a_generators[Permutation(0, 1, 2, 3, 4)] = torch.tensor(rot.as_matrix()).float()
+            
+            #p = 2*np.pi/5
+            # torch.tensor([
+            #     [np.cos(p*(1-(a**2)/4))+(a**2)/4, (1-np.cos(p)*(a**2)*(1+np.sqrt(5)/8)), a*(1+np.sqrt(5))/4 * np.sin(p)],
+            #     [(1-np.cos(p)*a**2*(1+np.sqrt(5)/8)), np.cos(p)*(1-(a**2)*(3+np.sqrt(5))/2), -np.sin(p)/2],
+            #     [-a*(1+np.sqrt(5))/4 * np.sin(p), a*np.sin(p)/2, np.cos(p)]
+            # ]).float()
+
+
+            a5_3d_a_generators[Permutation(4, 3, 2, 1, 0)] = a5_3d_a_generators[Permutation(0, 1, 2, 3, 4)].inverse()
+            a5_3d_a_generators[Permutation(1,2)(3,4)] = torch.tensor([
+                [-1, 0, 0],
+                [0, 1, 0],
+                [0, 0, -1]
+            ]).float()
+            a5_3d_a_rep = SymmetricRepresentationFromGenerators([a5_3d_a_generators, self.G, self.idx_to_perm], rep_params, 'a5_3d_a')
+            self.irreps['a5_3d_a'] = a5_3d_a_rep
+
+            ## the other one is just a permutation of the last one. To find the mapping, we must conjugate by (01)
+            mapping = []
+            h = Permutation(0, 1)
+            for g in self.G._elements:
+                hgh = h * g * h
+                mapping.append(self.G._elements.index(hgh))
+        
+            a5_3d_b_rep = RestrictedRepresentation(a5_3d_a_rep, mapping, 'a5_3d_b')
+            self.irreps['a5_3d_b'] = a5_3d_b_rep
+                
+            # copy over the non-trivial irreps    
+            self.non_trivial_irreps = self.irreps.copy()
+            del self.non_trivial_irreps['trivial']
+    
+
+    def idx_to_perm(self, x):
+        """
+        Convert an index to a permutation.
+
+        Args:
+            x (int): index of element in group
+
+        Returns:
+            Permutation: permutation object from sympy
+        """
+        return self.G._elements[x]
+
+    def perm_to_idx(self, perm):
+        """
+        Converts a permutation to an index.
+
+        Args:
+            perm (Permutation): permutation object from sympy
+
+        Returns:
+            int: index of element in group
+        """
+        return self.G._elements.index(perm)
+
+    def compose(self, x, y):
+        """
+        Compose elements of the group by converting to permutations, composing, and converting back.
+
+        Args:
+            x (int): left index
+            y (int): right index
+
+        Returns:
+            int: index of composition
+        """
+        return self.perm_to_idx(self.idx_to_perm(x) * self.idx_to_perm(y))
+
+    def perm_order(self, x):
+        """
+        Gets the order of a permutation.
+
+        Args:
+            x (int): index of element
+
+        Returns:
+            int: order of permutation
+        """
+        return self.idx_to_perm(x).order()
+
+    def signature(self, x):
+        """
+        Gets the signature of a permutation.
+
+        Args:
+            x (int): index of element
+
+        Returns:
+            int: Integer \in {0, 1} representing the signature of the permutation.
+        """
+        return self.idx_to_perm(x).signature()
+    
+    def compute_signatures(self):
+        """
+        Compute and store the signature of each element in the group.
+
+        Returns:
+            torch.tensor: tensor of signatures
+        """
+        signatures = torch.tensor([self.signature(i) for i in range(self.order)]).cuda()
+        return signatures

@@ -417,3 +417,21 @@ class Dihedral2dRepresentation(Representation):
             rep[i] = torch.tensor([[np.cos(2*np.pi*i*k/self.index), np.sin(2*np.pi*i*k/self.index)], 
                                 [np.sin(2*np.pi*i*k/self.index), -np.cos(2*np.pi*i*k/self.index)]]).cuda()
         return rep
+
+class RestrictedRepresentation(Representation):
+    def __init__(self, parent, indices, name):
+        self.order = len(indices)
+        self.index = parent.index
+        self.dim = parent.dim
+        self.rep = parent.rep[indices]
+        self.group_acronym = parent.group_acronym
+        self.orth_rep = self.compute_orth_rep(self.rep)
+        # access on indices on all three axes
+        self.logit_trace_tensor_cube = parent.logit_trace_tensor_cube[indices][:, indices][:, :, indices]
+
+        #indices = torch.tensor(indices)
+        # ind = torch.stack((indices, indices, indices))
+        # parent_group_order = parent.order
+        # A = parent.logit_trace_tensor_cube.reshape(parent_group_order, parent_group_order, parent_group_order)
+        # unraveled = torch.tensor(A.stride()) @ ind.flatten(1)
+        # self.logit_trace_tensor_cube = A.flatten()[unraveled].reshape(self.order, self.order, self.order)

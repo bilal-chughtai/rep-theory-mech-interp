@@ -7,10 +7,12 @@ print(f'Creating experiments in {parent_directory}')
 
 acronyms = {
     "OneLayerMLP": "1L_MLP",
+    "Transformer": "T",
+    "BilinearNet": "B",
     "SymmetricGroup": "S",
     "DihedralGroup": "D",
     "CyclicGroup": "C",
-
+    "AlternatingGroup": "A"
 }
 
 experiments = []
@@ -38,8 +40,9 @@ def create_experiment(cfg):
 
 
 seeds = [1, 2, 3, 4]
+seeds = [1]
 
-def create_on_seeds(cfg):
+def create_on_seeds(base_cfg, cfg):
     for i in seeds:
         experiment_cfg = {**base_cfg, **cfg}
         experiment_cfg["seed"] = i
@@ -55,96 +58,217 @@ base_cfg = {
     },
 }
 
-#1: S5, OneLayerMLP, various seeds - works
-cfg1 = {
+cfgs = []
+
+
+#1: S5, OneLayerMLP, various seeds 
+cfg = {
     "model": "OneLayerMLP",
     "group": "SymmetricGroup",
     "group_parameter": 5,
     "frac_train" : 0.4, # min needed to generalise on wd = 1
 }
 
+cfgs.append(cfg)
+
 #2: S5, Transformer, various seeds
-cfg2 = {
+cfg = {
     "model": "Transformer",
     "group": "SymmetricGroup",
     "group_parameter": 5,
     "frac_train" : 0.6, # yet to determine this number, still loss spiking
 }
 
-#3: S5, BilinearNet, various seeds - works
-cfg3 = {
+cfgs.append(cfg)
+
+#3: S5, BilinearNet, various seeds
+cfg = {
     "model": "BilinearNet",
     "group": "SymmetricGroup",
     "group_parameter": 5,
     "frac_train" : 0.5,  # could be reduced
 }
 
-#4: S6, OneLayerMLP, various seeds - works
-cfg4 = {
+cfgs.append(cfg)
+
+#4: S6, OneLayerMLP, various seeds
+cfg = {
     "model": "OneLayerMLP",
     "group": "SymmetricGroup",
     "group_parameter": 6,
     "frac_train" : 0.25, # min needed to generalise on wd = 1
 }
 
+cfgs.append(cfg)
+
 #5: S6, Transformer, various seeds
-cfg5 = {
+cfg = {
     "model": "Transformer",
     "group": "SymmetricGroup",
     "group_parameter": 6,
-    "frac_train" : 0.25, # yet to determine this number
+    "frac_train" : 0.4, 
 }
 
-#6: S6, BilinearNet, various seeds - probably works
-cfg6 = {
+cfgs.append(cfg)
+
+#6: S6, BilinearNet, various seeds
+cfg = {
     "model": "BilinearNet",
     "group": "SymmetricGroup",
     "group_parameter": 6,
     "frac_train" : 0.3, # probably could be decreased
 }
 
-#7: C113, OneLayerMLP, various seeds - works
-cfg7 = {
+cfgs.append(cfg)
+
+#7: C113, OneLayerMLP, various seeds
+cfg = {
     "model": "OneLayerMLP",
     "group": "CyclicGroup",
     "group_parameter": 113,
     "frac_train" : 0.3,
 }
 
-#8: C113, Transformer, various seeds - works, but weird kink in loss curve
-cfg8 = {
+cfgs.append(cfg)
+
+#8: C113, Transformer, various seeds
+cfg = {
     "model": "OneLayerMLP",
     "group": "CyclicGroup",
     "group_parameter": 113, 
     "frac_train" : 0.3, 
 }
 
-#9: C113, BilinearNet, various seeds - started overfitting at the end
-cfg9 = {
-    "model": "BiLinearNet",
+cfgs.append(cfg)
+
+#9: C113, BilinearNet, various seeds
+cfg = {
+    "model": "BilinearNet",
     "group": "CyclicGroup",
     "group_parameter": 113,
-    "frac_train" : 0.3, # this is overfitting
+    "frac_train" : 0.3, #TODO: this is overfitting
 }
 
+cfgs.append(cfg)
 
-#10: C118, OneLayerMLP, various seeds - works
-cfg10 = {
+#10: C118, OneLayerMLP, various seeds
+cfg = {
     "model": "OneLayerMLP",
     "group": "CyclicGroup",
     "group_parameter": 118,
     "frac_train" : 0.3,
 }
 
+cfgs.append(cfg)
 
-#11: C118, BilinearNet, various seeds
-cfg11 = {
-    "model": "BiLinearNet",
+#11: C118, Transformer, various seeds
+cfg = {
+    "model": "Transformer",
     "group": "CyclicGroup",
     "group_parameter": 118,
     "frac_train" : 0.3,
 }
 
+cfgs.append(cfg)
+
+#12: C118, BilinearNet, various seeds
+cfg = {
+    "model": "BilinearNet",
+    "group": "CyclicGroup",
+    "group_parameter": 118,
+    "frac_train" : 0.3, #TODO: this is overfitting
+}
+
+
+#13: D59, OneLayerMLP, various seeds
+cfg = {
+    "model": "OneLayerMLP",
+    "group": "DihedralGroup",
+    "group_parameter": 59,
+    "frac_train" : 0.3,
+}
+
+cfgs.append(cfg)
+
+#14: D59, Transformer, various seeds
+cfg = {
+    "model": "Transformer",
+    "group": "DihedralGroup",
+    "group_parameter": 59,
+    "frac_train" : 0.3,
+}
+
+cfgs.append(cfg)
+
+#15: D59, BilinearNet, various seeds
+cfg = {
+    "model": "BilinearNet",
+    "group": "DihedralGroup",
+    "group_parameter": 59,
+    "frac_train" : 0.3,
+}
+
+cfgs.append(cfg)
+
+#16: D61, OneLayerMLP, various seeds
+cfg = {
+    "model": "OneLayerMLP",
+    "group": "DihedralGroup",
+    "group_parameter": 61,
+    "frac_train" : 0.3,
+}
+
+cfgs.append(cfg)
+
+#17: D61, Transformer, various seeds
+cfg = {
+    "model": "Transformer",
+    "group": "DihedralGroup",
+    "group_parameter": 61,
+    "frac_train" : 0.3,
+}
+
+cfgs.append(cfg)
+
+#18: D61, BilinearNet, various seeds
+cfg = {
+    "model": "BilinearNet",
+    "group": "DihedralGroup",
+    "group_parameter": 61,
+    "frac_train" : 0.3,
+}
+
+cfgs.append(cfg)
+
+#19: a5, OneLayerMLP, various seeds
+cfg = {
+    "model": "OneLayerMLP",
+    "group": "AlternatingGroup",
+    "group_parameter": 5,
+    "frac_train" : 0.5,
+}
+
+cfgs.append(cfg)
+
+#20: A5, Transformer, various seeds
+cfg = {
+    "model": "Transformer",
+    "group": "AlternatingGroup",
+    "group_parameter": 5,
+    "frac_train" : 0.5,
+}
+
+cfgs.append(cfg)
+
+#21: A5, BilinearNet, various seeds
+cfg = {
+    "model": "BilinearNet",
+    "group": "DihedralGroup",
+    "group_parameter": 5,
+    "frac_train" : 0.5,
+}
+
+cfgs.append(cfg)
 
 
 
@@ -153,13 +277,8 @@ cfg11 = {
 
 
 
-
-
-
-
-cfgs = [cfg1, cfg2, cfg3, cfg4, cfg5, cfg6, cfg7, cfg8]
 for cfg in cfgs:
-    create_on_seeds(cfg)
+    create_on_seeds(base_cfg, cfg)
 
 # add a file in the parent directory that contains the names of all the experiments
 with open(os.path.join(parent_directory, 'unran_experiments.txt'), 'a') as f:

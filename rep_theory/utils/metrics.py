@@ -63,10 +63,16 @@ class Metrics():
         
 
     def determine_key_reps(self, model):
+        # if model is transformer, don't track all the metrics yet
+        if model.__class__.__name__ == 'Transformer':
+            self.no_internals = True
+        else:
+            self.no_internals = False
+
         self.cfg['key_reps'] = []
         all_logits = self.get_all_logits(model)
         for rep_name in self.group.irreps.keys():
-            if self.logit_trace_similarity(all_logits, self.group.irreps[rep_name].logit_trace_tensor_cube) > 0.02:
+            if self.logit_trace_similarity(all_logits, self.group.irreps[rep_name].logit_trace_tensor_cube) > 0.005:
                 self.cfg['key_reps'].append(rep_name)
         return self.cfg['key_reps']
 
@@ -86,20 +92,19 @@ class Metrics():
 
         if self.training:
             test_logits = self.get_test_logits(model)
-            all_logits = self.get_all_logits(model)
             metrics = self.get_standard_metrics(test_logits, train_logits, train_loss)
-        else:
-            all_logits = model(self.all_data)
 
         if self.track_metrics:
 
             # losses
-            # metrics['alternating_loss'] = self.loss_on_alternating_group(model)
+            all_logits = self.get_all_logits(model)
             metrics['all_loss'] = self.loss_all(all_logits)
 
             # reps
             for rep_name in self.group.irreps.keys():
                 metrics[f'logit_{rep_name}_rep_trace_similarity'] = self.logit_trace_similarity(all_logits, self.group.irreps[rep_name].logit_trace_tensor_cube)
+                if self.no_internals:
+                    return metrics
                 metrics[f'percent_x_embed_{rep_name}_rep'], metrics[f'percent_y_embed_{rep_name}_rep'] = self.percent_total_embed(model, self.group.irreps[rep_name].orth_rep)
                 metrics[f'percent_unembed_{rep_name}_rep']  = self.percent_unembed(model, self.group.irreps[rep_name].orth_rep)
                 metrics[f'percent_hidden_{rep_name}_rep'] = self.percent_hidden(model, self.group.irreps[rep_name].hidden_reps_xy_orth)
