@@ -1,6 +1,6 @@
 venv/
 __pycache__
 wandb/
-rep_theory/batch_experiments/**/*.pt
-rep_theory/experiments/**/*.pt
 rep_theory/batch_experiments/
+rep_theory/paper/mainline-S5/checkpoints
+rep_theory/utils/cache

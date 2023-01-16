@@ -79,7 +79,7 @@ def line(x, y=None, hover=None, xaxis='', yaxis='', log_y=False, save=False, **k
 def scatter(x, y, **kwargs):
     px.scatter(x=to_numpy(x, flat=True), y=to_numpy(y, flat=True), **kwargs).show()
 
-def lines(lines_list, x=None, mode='lines', labels=None, xaxis='', yaxis='', title = '', log_y=False, hover=None, save=False, show=True, **kwargs):
+def lines(lines_list, x=None, mode='lines', labels=None, xaxis='', yaxis='', title = '', log_x=False, log_y=False, hover=None, save=False, show=True, **kwargs):
     # Helper function to plot multiple lines
     if type(lines_list)==torch.Tensor:
         lines_list = [lines_list[i] for i in range(lines_list.shape[0])]
@@ -98,6 +98,8 @@ def lines(lines_list, x=None, mode='lines', labels=None, xaxis='', yaxis='', tit
         fig.add_trace(go.Scatter(x=x, y=line, mode=mode, name=label, hovertext=hover, **kwargs))
     if log_y:
         fig.update_layout(yaxis_type="log")
+    if log_x:
+        fig.update_layout(xaxis_type="log")
     if show:
         fig.show()
     if save:

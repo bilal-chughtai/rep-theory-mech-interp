@@ -29,8 +29,10 @@ def lines_from_keys(metrics, keys, title, yaxis, labels, save, **kwargs):
     data = get_history_local(keys, metrics)
     lines(data[:-1], title=title, xaxis="epoch", yaxis=yaxis, labels=labels, show=False, save=save, x=data[-1], **kwargs)
 
-def lines_from_template(metrics, template, fill_with, title, yaxis, save, **kwargs):
-    keys = []
+def lines_from_template(metrics, template, fill_with, title, yaxis, save,  other_keys=[], **kwargs):
+    keys = other_keys.copy()
+    labels = other_keys.copy()
     for irrep in fill_with:
         keys.append(template.format(irrep))
-    lines_from_keys(metrics, keys, title, yaxis, fill_with, save, **kwargs)  
+        labels.append(irrep)
+    lines_from_keys(metrics, keys, title, yaxis, labels, save, **kwargs)  

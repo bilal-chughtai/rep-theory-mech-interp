@@ -16,16 +16,18 @@ acronyms = {
 }
 
 experiments = []
+already_created = []
 
 def create_experiment(cfg):
 
     # Define what the directory for this experiment would be
-    experiment_name = f'{acronyms[cfg["model"]]}_{acronyms[cfg["group"]]}{cfg["group_parameter"]}_seed{cfg["seed"]}'
+    experiment_name = f'{acronyms[cfg["group"]]}{cfg["group_parameter"]}_{acronyms[cfg["model"]]}_seed{cfg["seed"]}'
     experiment_directory = os.path.join(parent_directory, experiment_name)
 
     # Check if the experiment directory exists
     if os.path.exists(experiment_directory):
         print(f'Experiment {experiment_name} already exists!')
+        already_created.append(experiment_name)
         return
 
     # Create a directory for the experiment
@@ -106,6 +108,7 @@ cfg = {
     "group": "SymmetricGroup",
     "group_parameter": 6,
     "frac_train" : 0.4, 
+    "epochs": 40000,
 }
 
 cfgs.append(cfg)
@@ -292,3 +295,8 @@ with open(os.path.join(parent_directory, 'ran_experiments.txt'), 'a') as f:
 # add a file in the parent directory that contains the names of all evaled experiments
 with open(os.path.join(parent_directory, 'evaled_experiments.txt'), 'a') as f:
     pass
+
+# add a file in the parent directory that contains the names of already created experiments
+with open(os.path.join(parent_directory, 'created_experiments.txt'), 'a') as f:
+    for experiment in already_created:
+        f.write(experiment + '\n')

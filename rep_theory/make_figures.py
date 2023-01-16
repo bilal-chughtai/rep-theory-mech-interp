@@ -45,38 +45,55 @@ with open(os.path.join(task_dir, 'key_reps.txt'), 'r') as f:
         key_rep_names.append(line.strip())
 
 non_trivial_irrep_names.remove('trivial')
-print(metrics)     
+if len(non_trivial_irrep_names) > 10:
+    reps_to_plot = key_rep_names
+else:
+    reps_to_plot = non_trivial_irrep_names
 
 # figure: evolution of cosine similarity
 template = "logit_{}_rep_trace_similarity"
-lines_from_template(metrics, template, key_rep_names, title="cosine similarity of true logits and hypothesised logits", yaxis="cosine similarity", save=f"{save_dir}/logit_similarity.png")
+lines_from_template(metrics, template, reps_to_plot, title="cosine similarity of true logits and hypothesised logits", yaxis="cosine similarity", save=f"{save_dir}/logit_similarity.png", log_x=True)
+
+# figure: evolution of cosine similarity
+# template = "other_logit_{}_rep_trace_similarity"
+# lines_from_template(metrics, template, reps_to_plot, title="cosine similarity of true logits and hypothesised logits", yaxis="cosine similarity", save=f"{save_dir}/other_logit_similarity.png", log_x=True)
+
+# figure: evolution of logit explained
+key = 'percent_logits_explained'
+lines_from_keys(metrics, [key], labels=[key], title='Fraction of variance of logits explained by representations', yaxis='fraction of variance', save=f'{save_dir}/percent_logits_explained.png')
+
+# figures: logit excluded and restricted loss by rep
+template = "logit_excluded_loss_{}_rep"
+lines_from_template(metrics, template, reps_to_plot, other_keys = ['train_loss', 'test_loss'], title="logit excluded loss", yaxis="cosine similarity", save=f"{save_dir}/logit_excluded_loss.png", log_x=True, log_y=True)
+template = "logit_restricted_loss_{}_rep"
+lines_from_template(metrics, template, reps_to_plot, other_keys = ['train_loss', 'test_loss'], title="logit restricted loss", yaxis="cosine similarity", save=f"{save_dir}/logit_restricted_loss.png", log_x=True, log_y=True)
+
+# figure: logit losses
+keys = ['train_loss', 'test_loss', 'total_logit_excluded_loss', 'total_logit_restricted_loss']
+lines_from_keys(metrics, keys, title='Logit Losses', labels=keys, yaxis='Loss', save=f'{save_dir}/logit_losses.png', log_y = True)
 
 # figure: percent a, b, c embed by representation over course of training
 
 template = "percent_x_embed_{}_rep"
-lines_from_template(metrics, template, key_rep_names, title="Fraction of variance of left embedding explained by representation", yaxis="fraction of variance", save=f"{save_dir}/percent_x_embed.png")
+lines_from_template(metrics, template, reps_to_plot, title="Fraction of variance of left embedding explained by representation", yaxis="fraction of variance", save=f"{save_dir}/percent_x_embed.png")
 
 template = "percent_y_embed_{}_rep"
-lines_from_template(metrics, template, key_rep_names, title="Fraction of variance of right embedding explained by representation", yaxis="fraction of variance", save=f"{save_dir}/percent_y_embed.png")
+lines_from_template(metrics, template, reps_to_plot, title="Fraction of variance of right embedding explained by representation", yaxis="fraction of variance", save=f"{save_dir}/percent_y_embed.png")
 
 template = "percent_unembed_{}_rep"
-lines_from_template(metrics, template, key_rep_names, title="Fraction of variance of unembedding explained by representation", yaxis="fraction of variance", save=f"{save_dir}/percent_unembed.png")
+lines_from_template(metrics, template, reps_to_plot, title="Fraction of variance of unembedding explained by representation", yaxis="fraction of variance", save=f"{save_dir}/percent_unembed.png")
 
 # figure: evolution of \rho(a), \rho(b), \rho(ab)
 template = "percent_hidden_{}_rep"
-lines_from_template(metrics, template, key_rep_names, title="Fraction of variance of MLP neurons explained by representation", yaxis="fraction of variance", save=f"{save_dir}/percent_hidden_ab.png")
+lines_from_template(metrics, template, reps_to_plot, title="Fraction of variance of MLP neurons explained by representation", yaxis="fraction of variance", save=f"{save_dir}/percent_hidden_ab.png")
 
-# figure: total excluded loss
-keys = ['total_excluded_loss', 'test_loss', 'train_loss']
-lines_from_keys(metrics, keys, title='Excluded Loss', labels=['Excluded Loss', 'Test Loss', 'Train Loss'], yaxis='Loss', save=f'{save_dir}/total_excluded_loss.png', log_y = True)
+# figure: total embed restricted and excluded loss
+keys = ['total_embed_excluded_loss', 'total_embed_restricted_loss', 'test_loss', 'train_loss']
+lines_from_keys(metrics, keys, title='Excluded Loss', labels=keys, yaxis='Loss', save=f'{save_dir}/total_excluded_loss.png', log_y = True)
 
-# figure: excluded loss by rep
-template = 'excluded_loss_{}_rep'
-lines_from_template(metrics, template, key_rep_names, title='Excluded Loss by Representation', yaxis='Loss', save=f'{save_dir}/excluded_loss_by_rep.png', log_y = True)
-
-# figure: restricted loss
-keys = ['restricted_loss', 'test_loss', 'train_loss']
-lines_from_keys(metrics, keys, title='Restricted Loss', labels=['Restricted Loss', 'Test Loss', 'Train Loss'], yaxis='Loss', save=f'{save_dir}/restricted_loss.png', log_y=True)
+# figure: embed excluded loss by rep
+template = 'embed_excluded_loss_{}_rep'
+lines_from_template(metrics, template, reps_to_plot, title='Excluded Loss by Representation', yaxis='Loss', save=f'{save_dir}/excluded_loss_by_rep.png', log_y = True)
 
 # figure: sum of square weights
 keys = ['sum_of_squared_weights']

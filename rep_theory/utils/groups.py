@@ -292,10 +292,14 @@ class DihedralGroup(Group):
                 self.irreps['sign'] = sign_rep
         
             # 2d representations
-            for k in range(0, int((self.index-1)/2)):
+            for k in range(1, int((self.index-1)/2)+1):
                 name = f'freq_{k}'
                 rep = Dihedral2dRepresentation([k], rep_params, name)
                 self.irreps[name] = rep
+            
+            # copy over the non-trivial irreps    
+            self.non_trivial_irreps = self.irreps.copy()
+            del self.non_trivial_irreps['trivial']
 
 
     def idx_to_cpts(self, x):

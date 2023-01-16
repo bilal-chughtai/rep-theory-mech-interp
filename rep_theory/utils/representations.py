@@ -89,7 +89,7 @@ class Representation():
         if os.path.exists(filename):
             print('... loading from file')
             t = torch.load(filename)
-            return t #- t.mean(-1, keepdim=True)
+            return t 
         N = self.all_data.shape[0]
         t = torch.zeros((self.order*self.order, self.order), dtype=torch.float).cuda()
         for i in tqdm(range(N)):
@@ -102,8 +102,7 @@ class Representation():
         t = t.reshape(self.order, self.order, self.order)
         f = open(filename, 'wb')
         torch.save(t, f)
-        return t #- t.mean(-1, keepdim=True)
-
+        return t 
 
 class TrivialRepresentation(Representation):
     """
