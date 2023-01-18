@@ -1,0 +1,11 @@
+freq_16
+freq_30
+freq_39
+freq_8
+freq_43
+freq_48
+sign
+freq_11
+freq_32
+freq_58
+freq_40

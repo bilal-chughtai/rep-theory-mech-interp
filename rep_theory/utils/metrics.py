@@ -80,7 +80,7 @@ class Metrics():
 
         self.cfg['key_reps'] = []
         all_logits = self.get_all_logits(model)
-        for rep_name in self.group.irreps.keys():
+        for rep_name in self.group.non_trivial_irreps.keys():
             if self.logit_trace_similarity(all_logits, self.group.irreps[rep_name].logit_trace_tensor_cube) > 0.005:
                 self.cfg['key_reps'].append(rep_name)
         return self.cfg['key_reps']
@@ -112,11 +112,12 @@ class Metrics():
             percent_logits_explained = 0
             sims={}
             for rep_name in self.group.irreps.keys():
-                sim = self.logit_trace_similarity(all_logits, self.group.irreps[rep_name].logit_trace_tensor_cube)
-                percent_logits_explained += sim**2
-                sims[rep_name] = sim
-                metrics[f'logit_{rep_name}_rep_trace_similarity'] = sim
-                metrics[f'logit_excluded_loss_{rep_name}_rep'], metrics[f'logit_restricted_loss_{rep_name}_rep'] = self.logit_excluded_and_restricted_loss(all_logits, sim, self.group.irreps[rep_name].logit_trace_tensor_cube)
+                if rep_name != 'trivial':
+                    sim = self.logit_trace_similarity(all_logits, self.group.irreps[rep_name].logit_trace_tensor_cube)
+                    percent_logits_explained += sim**2
+                    sims[rep_name] = sim
+                    metrics[f'logit_{rep_name}_rep_trace_similarity'] = sim
+                    metrics[f'logit_excluded_loss_{rep_name}_rep'], metrics[f'logit_restricted_loss_{rep_name}_rep'] = self.logit_excluded_and_restricted_loss(all_logits, sim, self.group.irreps[rep_name].logit_trace_tensor_cube)
                 
                 if self.no_internals:
                     continue

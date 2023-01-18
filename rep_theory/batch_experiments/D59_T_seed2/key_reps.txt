@@ -1,0 +1,3 @@
+freq_1
+freq_23
+freq_15

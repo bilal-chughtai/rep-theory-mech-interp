@@ -1,0 +1,12 @@
+sign
+freq_19
+freq_23
+freq_6
+freq_7
+freq_3
+freq_24
+freq_5
+freq_14
+freq_13
+freq_12
+freq_15

@@ -38,7 +38,8 @@ class Representation():
 
         if irrep:
             self.orth_rep = self.compute_orth_rep(self.rep)
-            self.logit_trace_tensor_cube = self.compute_logit_trace_tensor_cube()
+            if self.friendly_name != 'trivial':
+                self.logit_trace_tensor_cube = self.compute_logit_trace_tensor_cube()
 
 
     def get_rep_dim(self):
@@ -426,7 +427,8 @@ class RestrictedRepresentation(Representation):
         self.group_acronym = parent.group_acronym
         self.orth_rep = self.compute_orth_rep(self.rep)
         # access on indices on all three axes
-        self.logit_trace_tensor_cube = parent.logit_trace_tensor_cube[indices][:, indices][:, :, indices]
+        if parent.friendly_name != "trivial":
+            self.logit_trace_tensor_cube = parent.logit_trace_tensor_cube[indices][:, indices][:, :, indices]
 
         #indices = torch.tensor(indices)
         # ind = torch.stack((indices, indices, indices))

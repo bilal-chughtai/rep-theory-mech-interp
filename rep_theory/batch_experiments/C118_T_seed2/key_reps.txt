@@ -1,0 +1,4 @@
+freq_27
+freq_8
+freq_57
+freq_12

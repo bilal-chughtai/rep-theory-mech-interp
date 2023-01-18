@@ -108,23 +108,8 @@ with open(os.path.join(task_dir, 'irreps.txt'), 'w') as f:
     for irrep in group.irreps:
         f.write(f'{irrep}\n')
 
-# Use logit similarity to determine which order the key reps were learnt in
-key_reps = metrics.cfg['key_reps']
-key_reps_in_order = []
-# loop over row in dataframe
-for i, row in df.iterrows():
-    # get the logit similarity of each key rep
-    for key_rep in key_reps:
-        logit_sim = row[f'logit_{key_rep}_rep_trace_similarity']
-        if logit_sim > 0.005 and key_rep not in key_reps_in_order:
-            key_reps_in_order.append(key_rep)
-            break
-
-assert len(key_reps_in_order) == len(key_reps)
-
-
-# Create a text file listing all the key reps of the group, in order
+# add the key_reps to a file for later use
 with open(os.path.join(task_dir, 'key_reps.txt'), 'w') as f:
-    for irrep in key_reps_in_order:
+    for irrep in metrics.key_reps:
         f.write(f'{irrep}\n')
-        
+            

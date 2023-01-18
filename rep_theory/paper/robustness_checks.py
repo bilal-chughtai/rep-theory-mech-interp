@@ -20,9 +20,21 @@ for f in os.listdir(batch_run_dir):
     
 
 def sci_notation(x):
-    # convert a number to scientific notation
-    a = '{:.2e}'.format(x)
-    return a.split('e')[0].rstrip('0').rstrip('.') + 'e' + a.split('e')[1]
+    # convert a number to scientific notation, but only if the magnitude of power is greater than 2
+    if x == 0:
+        return '0'
+    elif abs(x) < 0.01 or abs(x) > 100:
+        return '{:.2e}'.format(x)
+    else:
+        return '{:.2f}'.format(x)
+        
+
+    
+    
+
+def percent_notation(x):
+    # convert a number to a percentage
+    return '{:.2f}'.format(x*100) + '%'
 
 
 # list of metrics to always get
@@ -58,11 +70,14 @@ for run in runs:
 
         # add the base keys to the dataframe
         for key in base_keys:
-            row[key] = sci_notation(run_metrics[key])
+            if 'loss' in key:
+                row[key] = sci_notation(run_metrics[key])
+            elif 'percent' in key:
+                row[key] = percent_notation(run_metrics[key])
         
 
         # get the key_reps in order from the text file
-        key_reps = os.path.join(batch_run_dir, run, 'key_reps.txt')
+        key_reps = os.path.join(batch_run_dir, run, 'key_reps_in_order.txt')
         with open(key_reps, 'r') as f:
             key_reps = f.readlines()
         key_reps = [irrep.strip() for irrep in key_reps]

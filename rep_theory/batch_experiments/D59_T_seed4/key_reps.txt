@@ -1,0 +1,5 @@
+freq_1
+freq_16
+freq_4
+freq_24
+sign
