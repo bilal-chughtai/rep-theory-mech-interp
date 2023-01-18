@@ -8,7 +8,7 @@ class Metrics():
     """
     A class to track metrics during training and testing.
     """
-    def __init__(self, group, training, track_metrics, train_labels=None, test_data=None, test_labels=None, cfg={}):
+    def __init__(self, group, training, track_metrics, train_data = None, train_labels=None, test_data=None, test_labels=None, shuffled_indices=None, cfg={}):
         """
         Initialise the metrics class.
 
@@ -22,15 +22,23 @@ class Metrics():
             test_labels (torch.tensor, optional): labels for testing data. Defaults to None.
         """
         self.training = training
+        self.train_data = train_data
         self.train_labels = train_labels
         self.test_data = test_data
         self.test_labels = test_labels
         self.group = group
         self.track_metrics = track_metrics
-        all_data = group.get_all_data().cuda()
+        all_data, _ = group.get_all_data()
         self.all_data = all_data[:, :2]
         self.all_labels = all_data[:, 2]
         self.cfg = cfg
+        self.shuffled_indices = shuffled_indices
+
+        # get the indices of train data in all data
+        #values, indices = torch.topk(((self.all_data.t() == self.train_data.unsqueeze(-1)).all(dim=1)).int(), 1, 1)
+        #indices = indices[values!=0]
+        #self.train_indices = indices
+        self.train_indices = self.shuffled_indices[:len(self.train_data)]
 
         if track_metrics:
             for rep_name in self.group.irreps.keys():
@@ -158,7 +166,9 @@ class Metrics():
         norm_logits = torch.norm(centered_logits)
         excluded_logits = centered_logits - sim * norm_logits * unit_trace
         restricted_logits = sim * norm_logits * unit_trace
-        excluded_loss = loss_fn(excluded_logits.reshape(-1, self.group.order), self.all_labels).item()
+        excluded_logits = excluded_logits.reshape(-1, self.group.order)
+        excluded_logits = excluded_logits[self.train_indices]
+        excluded_loss = loss_fn(excluded_logits, self.train_labels).item()
         restricted_loss = loss_fn(restricted_logits.reshape(-1, self.group.order), self.all_labels).item()
         return excluded_loss, restricted_loss
 
@@ -175,9 +185,11 @@ class Metrics():
             key_rep_logits += sims[rep_name] * norm_logits * unit_trace
 
         excluded_logits = centered_logits - key_rep_logits
+        excluded_logits = excluded_logits.reshape(-1, self.group.order)
+        excluded_logits = excluded_logits[self.train_indices]
         restricted_logits = key_rep_logits
 
-        excluded_loss = loss_fn(excluded_logits.reshape(-1, self.group.order), self.all_labels).item()
+        excluded_loss = loss_fn(excluded_logits, self.train_labels).item()
         restricted_loss = loss_fn(restricted_logits.reshape(-1, self.group.order), self.all_labels).item()
 
         # # shuffle the excluded logits over the batch dimension

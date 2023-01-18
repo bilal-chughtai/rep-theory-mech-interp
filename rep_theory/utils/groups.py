@@ -89,6 +89,7 @@ class Group:
             torch.tensor: Tensor of shape (order*order, 3) where each row is (x, y, x*y).
         """
         data=torch.zeros((self.order*self.order, 3), dtype=torch.int64)
+        shuffled_indices = None
         for i in range(self.order):
             for j in range(self.order):
                 data[i*self.order+j, 0] = i
@@ -98,7 +99,7 @@ class Group:
             torch.manual_seed(shuffle_seed) 
             shuffled_indices = torch.randperm(self.order*self.order)
             data = data[shuffled_indices]
-        return data
+        return data.cuda(), shuffled_indices
     
     def get_subset_of_data(self, indices1, indices2 = 'default', shuffle_seed=False):
         """
@@ -186,7 +187,8 @@ class CyclicGroup(Group):
         if init_all:
 
             # get all data to compute metrics
-            self.all_data = self.get_all_data()[:, :2]
+            self.all_data, _ = self.get_all_data()
+            self.all_data = self.all_data[:, :2]
 
             # parameters for representation initialisation
             rep_params = {
@@ -258,7 +260,8 @@ class DihedralGroup(Group):
         if init_all:
 
             # get all data to compute metrics
-            self.all_data = self.get_all_data()[:, :2]
+            self.all_data, _ = self.get_all_data()
+            self.all_data = self.all_data[:, :2]
 
             # parameters for representation initialisation
             rep_params = {
@@ -386,8 +389,9 @@ class SymmetricGroup(Group):
         if init_all:
 
             # get all data to compute metrics
-            self.all_data = self.get_all_data()[:, :2]
-            self.alternating_data = self.get_subset_of_data([i for i in range(self.order) if self.signature(i)==1])[:, :2]
+            self.all_data, _ = self.get_all_data()
+            self.all_data = self.all_data[:, :2]
+            #self.alternating_data = self.get_subset_of_data([i for i in range(self.order) if self.signature(i)==1])[:, :2]
 
             # parameters for representation initialisation
             rep_params = {
@@ -669,7 +673,8 @@ class AlternatingGroup(Group):
             self.parent_group = SymmetricGroup(index, init_all=True)
 
             # get all data to compute metrics
-            self.all_data = self.get_all_data()[:, :2]
+            self.all_data, _ = self.get_all_data()
+            self.all_data = self.all_data[:, :2]
 
             # parameters for representation initialisation
             rep_params = {

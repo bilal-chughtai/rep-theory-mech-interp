@@ -25,12 +25,12 @@ else:
 
 track_metrics = False
 
-task_dir = "experiments/tune_hyperparam"
+task_dir = "experiments/C113_T_seed1"
 
 print(f'Training {task_dir}')
 
 print('Loading cfg...')
-seed, frac_train, layers, lr, group_param, weight_decay, num_epochs, group_type, architecture_type = load_cfg(task_dir)
+seed, frac_train, layers, lr, group_param, weight_decay, betas, num_epochs, group_type, architecture_type = load_cfg(task_dir)
 
 print('Initializing group...')
 group = group_type(group_param, init_all=track_metrics)
@@ -51,7 +51,7 @@ wb_project_name = f'{group.__class__.__name__}RepTheory'
 
 wandb.init(project=wb_project_name, entity="bilal-experiments", config=config)
 
-train_data, test_data, train_labels, test_labels = generate_train_test_data(group, frac_train, seed)
+train_data, test_data, train_labels, test_labels, shuffled_indices = generate_train_test_data(group, frac_train, seed)
 
 train_losses = []
 test_losses = []
@@ -61,7 +61,7 @@ test_accs = []
 print('Initializing model...')
 model = architecture_type(layers, group.order, seed)
 model.cuda()
-metrics = Metrics(group, True, track_metrics, train_labels, test_data, test_labels)
+metrics = Metrics(group, True, track_metrics, train_data, train_labels, test_data, test_labels, shuffled_indices)
 optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
 #scheduler = transformers.get_cosine_schedule_with_warmup(optimizer, 100, num_epochs)
 

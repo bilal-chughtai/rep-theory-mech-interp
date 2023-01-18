@@ -10,6 +10,40 @@ import plotly.graph_objects as go
 pio.renderers.default = "vscode"
 
 
+def get_legend_dict(legend_pos):
+
+    if legend_pos=='tl':
+        return dict(
+            yanchor="top",
+            y=0.99,
+            xanchor="left",
+            x=0.01
+        )
+    elif legend_pos=='tr':
+        return dict(
+            yanchor="top",
+            y=0.99,
+            xanchor="right",
+            x=0.99
+        )
+    elif legend_pos=='bl':
+        return dict(
+            yanchor="bottom",
+            y=0.01,
+            xanchor="left",
+            x=0.01
+        )
+    elif legend_pos=='br':
+        return dict(
+            yanchor="bottom",
+            y=0.01,
+            xanchor="right",
+            x=0.99
+        )
+    else:
+        Exception('Invalid legend position')
+
+
 
 # This is mostly a bunch of over-engineered mess to hack Plotly into producing 
 # the pretty pictures I want, I recommend not reading too closely unless you 
@@ -70,6 +104,7 @@ def line(x, y=None, hover=None, xaxis='', yaxis='', log_y=False, save=False, **k
         x=to_numpy(x, flat=True)
     fig = px.line(x, y=y, hover_name=hover, **kwargs)
     fig.update_layout(xaxis_title=xaxis, yaxis_title=yaxis)
+    fig.update_layout(title_x=0.5)
     if log_y:    
         fig.update_layout(yaxis_type="log")
     fig.show()
@@ -79,7 +114,7 @@ def line(x, y=None, hover=None, xaxis='', yaxis='', log_y=False, save=False, **k
 def scatter(x, y, **kwargs):
     px.scatter(x=to_numpy(x, flat=True), y=to_numpy(y, flat=True), **kwargs).show()
 
-def lines(lines_list, x=None, mode='lines', labels=None, xaxis='', yaxis='', title = '', log_x=False, log_y=False, hover=None, save=False, show=True, **kwargs):
+def lines(lines_list, x=None, mode='lines', labels=None, xaxis='', yaxis='', title = '', log_x=False, log_y=False, hover=None, save=False, show=True, legend_pos=None, **kwargs):
     # Helper function to plot multiple lines
     if type(lines_list)==torch.Tensor:
         lines_list = [lines_list[i] for i in range(lines_list.shape[0])]
@@ -88,6 +123,9 @@ def lines(lines_list, x=None, mode='lines', labels=None, xaxis='', yaxis='', tit
     fig = go.Figure(layout={'title':title})
     fig.update_xaxes(title=xaxis)
     fig.update_yaxes(title=yaxis)
+    fig.update_layout(title_x=0.5)
+    fig.update_layout(title_y=0.85)
+
     for c, line in enumerate(lines_list):
         if type(line)==torch.Tensor:
             line = to_numpy(line)
@@ -96,6 +134,9 @@ def lines(lines_list, x=None, mode='lines', labels=None, xaxis='', yaxis='', tit
         else:
             label = c
         fig.add_trace(go.Scatter(x=x, y=line, mode=mode, name=label, hovertext=hover, **kwargs))
+    
+    fig.update_layout(legend=get_legend_dict(legend_pos))
+
     if log_y:
         fig.update_layout(yaxis_type="log")
     if log_x:

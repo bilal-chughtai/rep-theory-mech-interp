@@ -27,11 +27,11 @@ def sci_notation(x):
 
 # list of metrics to always get
 base_keys = [
-    'epoch',
-    'train_loss',
-    'train_acc',
+    #'epoch',
+    #'train_loss',
+    #'train_acc',
     'test_loss',
-    'test_acc',
+    #'test_acc',
     'total_logit_excluded_loss',
     'total_logit_restricted_loss',
     'percent_logits_explained'
@@ -39,8 +39,8 @@ base_keys = [
     
     # create templates for key_rep dependent summary statistics
 templates =[
-    'logit_excluded_loss_{}_rep',
-    'logit_restricted_loss_{}_rep',
+    #'logit_excluded_loss_{}_rep',
+    #'logit_restricted_loss_{}_rep',
     'logit_{}_rep_trace_similarity'
 ]
 

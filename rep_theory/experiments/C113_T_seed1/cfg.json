@@ -1,0 +1,1 @@
+{"lr": 0.001, "num_epochs": 100000, "weight_decay": 1, "layers": {"embed_dim": 256, "hidden_dim": 128}, "model": "Transformer", "group": "CyclicGroup", "group_parameter": 113, "frac_train": 0.3, "seed": 1}

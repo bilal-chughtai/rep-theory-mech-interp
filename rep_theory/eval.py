@@ -28,20 +28,20 @@ else:
 print(f'Evaluating {task_dir}')
 
 print('Loading cfg...')
-seed, frac_train, layers, lr, group_param, weight_decay, num_epochs, group_type, architecture_type = load_cfg(task_dir)
+seed, frac_train, layers, lr, group_param, weight_decay, betas, num_epochs, group_type, architecture_type = load_cfg(task_dir)
 
 track_metrics = True
 
 print('Initializing group...')
 group = group_type(group_param, init_all=track_metrics)
 
-train_data, test_data, train_labels, test_labels = generate_train_test_data(group, frac_train, seed)
+train_data, test_data, train_labels, test_labels, shuffled_indices = generate_train_test_data(group, frac_train, seed)
 
 print('Initializing model...')
 model = architecture_type(layers, group.order, seed)
 model.cuda()
 
-metrics = Metrics(group, True, track_metrics, train_labels, test_data, test_labels)
+metrics = Metrics(group, True, track_metrics, train_data, train_labels, test_data, test_labels, shuffled_indices)
 
 
 
@@ -116,7 +116,7 @@ for i, row in df.iterrows():
     # get the logit similarity of each key rep
     for key_rep in key_reps:
         logit_sim = row[f'logit_{key_rep}_rep_trace_similarity']
-        if logit_sim > 0.05 and key_rep not in key_reps_in_order:
+        if logit_sim > 0.005 and key_rep not in key_reps_in_order:
             key_reps_in_order.append(key_rep)
             break
 

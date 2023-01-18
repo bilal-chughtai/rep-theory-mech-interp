@@ -134,7 +134,7 @@ class Transformer(HookedTransformer):
 
 
 def generate_train_test_data(group, frac_train, seed=False):
-    data = group.get_all_data(seed).cuda()
+    data, shuffled_indices = group.get_all_data(seed)
     train_size = int(frac_train*data.shape[0])
     train = data[:train_size]
     test = data[train_size:]
@@ -142,7 +142,7 @@ def generate_train_test_data(group, frac_train, seed=False):
     train_labels = train[:, 2]
     test_data = test[:, :2]
     test_labels = test[:, 2]
-    return train_data, test_data, train_labels, test_labels
+    return train_data, test_data, train_labels, test_labels, shuffled_indices
 
 # Loss Function
 

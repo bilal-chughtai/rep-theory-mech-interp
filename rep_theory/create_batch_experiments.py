@@ -47,12 +47,19 @@ def create_on_seeds(base_cfg, cfg):
     for i in seeds:
         experiment_cfg = {**base_cfg, **cfg}
         experiment_cfg["seed"] = i
+
+        if "num_epochs" not in experiment_cfg:
+            if experiment_cfg["model"] == "OneLayerMLP":
+                experiment_cfg["num_epochs"] = 250000
+            elif experiment_cfg["model"] == "Transformer":
+                experiment_cfg["num_epochs"] = 50000
+        
         create_experiment(experiment_cfg)
 
 base_cfg = {
     "lr" : 1e-3,
-    "num_epochs" : 100000,
     "weight_decay" : 1,
+    "betas": (0.9, 0.98),
     "layers": {
         "embed_dim": 256,
         "hidden_dim": 128
@@ -90,7 +97,7 @@ cfg = {
     "frac_train" : 0.5,  # could be reduced
 }
 
-cfgs.append(cfg)
+#cfgs.append(cfg)
 
 #4: S6, OneLayerMLP, various seeds
 cfg = {
@@ -98,6 +105,7 @@ cfg = {
     "group": "SymmetricGroup",
     "group_parameter": 6,
     "frac_train" : 0.25, # min needed to generalise on wd = 1
+    "epochs": 100000
 }
 
 cfgs.append(cfg)
@@ -108,7 +116,7 @@ cfg = {
     "group": "SymmetricGroup",
     "group_parameter": 6,
     "frac_train" : 0.4, 
-    "epochs": 40000,
+    "epochs": 50000,
 }
 
 cfgs.append(cfg)
@@ -119,9 +127,10 @@ cfg = {
     "group": "SymmetricGroup",
     "group_parameter": 6,
     "frac_train" : 0.3, # probably could be decreased
+    "epochs": 50000,
 }
 
-cfgs.append(cfg)
+#cfgs.append(cfg)
 
 #7: C113, OneLayerMLP, various seeds
 cfg = {
@@ -151,7 +160,7 @@ cfg = {
     "frac_train" : 0.3, #TODO: this is overfitting
 }
 
-cfgs.append(cfg)
+#cfgs.append(cfg)
 
 #10: C118, OneLayerMLP, various seeds
 cfg = {
@@ -181,6 +190,7 @@ cfg = {
     "frac_train" : 0.3, #TODO: this is overfitting
 }
 
+#cfgs.append(cfg)
 
 #13: D59, OneLayerMLP, various seeds
 cfg = {
@@ -210,7 +220,7 @@ cfg = {
     "frac_train" : 0.3,
 }
 
-cfgs.append(cfg)
+#cfgs.append(cfg)
 
 #16: D61, OneLayerMLP, various seeds
 cfg = {
@@ -240,7 +250,7 @@ cfg = {
     "frac_train" : 0.3,
 }
 
-cfgs.append(cfg)
+#cfgs.append(cfg)
 
 #19: a5, OneLayerMLP, various seeds
 cfg = {
@@ -258,6 +268,8 @@ cfg = {
     "group": "AlternatingGroup",
     "group_parameter": 5,
     "frac_train" : 0.6,
+    "num_epochs": 250000 #seems to need longer
+
 }
 
 cfgs.append(cfg)
@@ -270,7 +282,7 @@ cfg = {
     "frac_train" : 0.5,
 }
 
-cfgs.append(cfg)
+#cfgs.append(cfg)
 
 
 

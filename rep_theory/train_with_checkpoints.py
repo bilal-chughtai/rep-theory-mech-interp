@@ -13,14 +13,14 @@ import argparse
 # command line arguments
 parser = argparse.ArgumentParser()
 parser.add_argument('--task_dir', type=str, default='experiments/1L_MLP_sym_S5')
-parser.add_argument('--save_every', type=int, default=100)
+parser.add_argument('--num_checkpoints', type=int, default=1000)
 
 
 args = parser.parse_args()
 
 
 task_dir = args.task_dir
-save_every = args.save_every
+num_checkpoints = args.num_checkpoints
 # if no checkpoint dir, make it
 checkpoint_dir = os.path.join(task_dir, 'checkpoints')
 if not os.path.exists(checkpoint_dir):
@@ -39,7 +39,7 @@ track_metrics = False
 print(f'Training {task_dir}')
 
 print('Loading cfg...')
-seed, frac_train, layers, lr, group_param, weight_decay, num_epochs, group_type, architecture_type = load_cfg(task_dir)
+seed, frac_train, layers, lr, group_param, weight_decay, betas, num_epochs, group_type, architecture_type = load_cfg(task_dir)
 
 print('Initializing group...')
 group = group_type(group_param, init_all=track_metrics)
@@ -51,6 +51,7 @@ wb_config = {
     "lr": lr,
     "group_param": group_param,
     "weight_decay": weight_decay,
+    "betas": betas,
     "num_epochs": num_epochs,
     "group_type": group_type,
     "architecture_type": architecture_type    
@@ -60,15 +61,20 @@ wb_project_name = f'{group.__class__.__name__}RepTheoryBatch'
 
 wandb.init(project=wb_project_name, entity="bilal-experiments", config=wb_config)
 
-train_data, test_data, train_labels, test_labels = generate_train_test_data(group, frac_train, seed)
+train_data, test_data, train_labels, test_labels, shuffled_indices = generate_train_test_data(group, frac_train, seed)
 
 print('Initializing model...')
 model = architecture_type(layers, group.order, seed)
 model.cuda()
 
-metrics = Metrics(group, True, track_metrics, train_labels, test_data, test_labels)
+metrics = Metrics(group, True, track_metrics, train_data, train_labels, test_data, test_labels, shuffled_indices)
 
-optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
+optimizer = torch.optim.AdamW(model.parameters(), lr=lr, betas=betas, weight_decay=weight_decay)
+
+# compute which epochs to checkpoint, exponentially reducing in frequency
+checkpoints = list(np.logspace(0, np.log10(num_epochs), num=num_checkpoints, endpoint=True, dtype=np.int32))
+checkpoints = [0] + checkpoints + [num_epochs-1]
+checkpoints = list(dict.fromkeys(checkpoints))
 
 def cleanup():
     print('Saving final model...')
@@ -89,7 +95,7 @@ try:
                 metric = metrics.get_metrics(model, train_logits, train_loss)
                 wandb.log(metric)
         
-        if epoch%save_every == 0:
+        if epoch in checkpoints:
             save_checkpoint(model, epoch, task_dir)
 
     cleanup()

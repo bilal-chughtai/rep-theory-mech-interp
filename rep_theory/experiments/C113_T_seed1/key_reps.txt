@@ -1,0 +1,4 @@
+freq_16
+freq_30
+freq_32
+freq_56
