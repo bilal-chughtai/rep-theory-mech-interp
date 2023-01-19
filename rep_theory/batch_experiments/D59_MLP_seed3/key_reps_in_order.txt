@@ -5,7 +5,7 @@ freq_16
 freq_9
 freq_12
 freq_11
-freq_24
 freq_15
 freq_18
 freq_19
+freq_24

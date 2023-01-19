@@ -10,6 +10,6 @@ freq_14
 freq_9
 freq_2
 freq_7
-freq_16
 freq_3
+freq_16
 freq_18

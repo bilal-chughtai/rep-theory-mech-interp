@@ -3,7 +3,7 @@ freq_7
 freq_10
 freq_15
 freq_21
-freq_29
-freq_19
 freq_17
+freq_19
 freq_20
+freq_29

@@ -68,12 +68,28 @@ lines_from_template(metrics, template, reps_to_plot, other_keys = ['train_loss',
 template = "logit_restricted_loss_{}_rep"
 lines_from_template(metrics, template, reps_to_plot, other_keys = ['train_loss', 'test_loss'], yaxis="cosine similarity", save=f"{save_dir}/logit_restricted_loss.png", log_x=True, log_y=True, legend_pos='bl')
 
+# fogires: hidden excluded and restricted loss by rep
+template = "hidden_excluded_loss_{}_rep"
+lines_from_template(metrics, template, reps_to_plot, other_keys = ['train_loss', 'test_loss'], yaxis="cosine similarity", save=f"{save_dir}/hidden_excluded_loss.png", log_x=True, log_y=True, legend_pos='bl')
+template = "hidden_restricted_loss_{}_rep"
+lines_from_template(metrics, template, reps_to_plot, other_keys = ['train_loss', 'test_loss'], yaxis="cosine similarity", save=f"{save_dir}/hidden_restricted_loss.png", log_x=True, log_y=True, legend_pos='bl')
+
 # figure: logit losses
 keys = ['train_loss', 'test_loss', 'total_logit_excluded_loss', 'total_logit_restricted_loss']
 lines_from_keys(metrics, keys, title='Logit Losses', labels=keys, yaxis='Loss', save=f'{save_dir}/logit_losses.png', log_x=True, log_y = True, legend_pos='bl')
 
-# figure: percent a, b, c embed by representation over course of training
+# figure: logit losses
+keys = ['train_loss', 'test_loss', 'total_hidden_excluded_loss', 'total_hidden_restricted_loss']
+lines_from_keys(metrics, keys, title='Hidden Losses', labels=keys, yaxis='Loss', save=f'{save_dir}/hidden_logit_losses.png', log_x=True, log_y = True, legend_pos='bl')
 
+# figure: total embed restricted and excluded loss
+#keys = ['total_embed_excluded_loss', 'total_embed_restricted_loss', 'test_loss', 'train_loss']
+#lines_from_keys(metrics, keys, title='Excluded Loss', labels=keys, yaxis='Loss', save=f'{save_dir}/total_excluded_loss.png', log_y = True)
+# figure: embed excluded loss by rep
+#template = 'embed_excluded_loss_{}_rep'
+#lines_from_template(metrics, template, reps_to_plot, title='Excluded Loss by Representation', yaxis='Loss', save=f'{save_dir}/excluded_loss_by_rep.png', log_y = True)
+
+# figure: percent a, b, c embed by representation over course of training
 template = "percent_x_embed_{}_rep"
 lines_from_template(metrics, template, reps_to_plot, yaxis="fraction of variance", save=f"{save_dir}/percent_x_embed.png", legend_pos='tl')
 
@@ -87,18 +103,15 @@ lines_from_template(metrics, template, reps_to_plot, yaxis="fraction of variance
 template = "percent_hidden_{}_rep"
 lines_from_template(metrics, template, reps_to_plot, yaxis="fraction of variance", save=f"{save_dir}/percent_hidden_ab.png", legend_pos='tr')
 
-# figure: total embed restricted and excluded loss
-keys = ['total_embed_excluded_loss', 'total_embed_restricted_loss', 'test_loss', 'train_loss']
-lines_from_keys(metrics, keys, title='Excluded Loss', labels=keys, yaxis='Loss', save=f'{save_dir}/total_excluded_loss.png', log_y = True)
 
-# figure: embed excluded loss by rep
-template = 'embed_excluded_loss_{}_rep'
-lines_from_template(metrics, template, reps_to_plot, title='Excluded Loss by Representation', yaxis='Loss', save=f'{save_dir}/excluded_loss_by_rep.png', log_y = True)
 
 # figure: sum of square weights
 keys = ['sum_of_squared_weights']
 lines_from_keys(metrics, keys, title='Sum of Square Weights', labels=['Sum of Square Weights'], yaxis='Sum of Square Weights', save=f'{save_dir}/sum_of_square_weights.png', log_y=True)
 
+# figure test loss / restricted loss
+keys = ['test_loss_restricted_loss_ratio']
+lines_from_keys(metrics, keys, title='Test Loss / Restricted Loss', labels=['Test Loss / Restricted Loss'], yaxis='Test Loss / Restricted Loss', save=f'{save_dir}/test_loss_restricted_loss_ratio.png', log_y=True)
 
 
 

@@ -5,8 +5,8 @@ freq_29
 freq_16
 freq_44
 sign
-freq_46
-freq_38
-freq_58
-freq_32
 freq_30
+freq_32
+freq_38
+freq_46
+freq_58

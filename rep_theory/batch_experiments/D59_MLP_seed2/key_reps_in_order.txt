@@ -4,7 +4,7 @@ sign
 freq_19
 freq_6
 freq_26
-freq_23
 freq_7
 freq_20
 freq_21
+freq_23

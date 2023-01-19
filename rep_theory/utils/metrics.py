@@ -33,6 +33,7 @@ class Metrics():
         self.all_labels = all_data[:, 2]
         self.cfg = cfg
         self.shuffled_indices = shuffled_indices
+        self.no_internals = False 
 
         # get the indices of train data in all data
         #values, indices = torch.topk(((self.all_data.t() == self.train_data.unsqueeze(-1)).all(dim=1)).int(), 1, 1)
@@ -72,12 +73,6 @@ class Metrics():
         
 
     def determine_key_reps(self, model):
-        # if model is transformer, don't track all the metrics yet
-        if model.__class__.__name__ == 'Transformer':
-            self.no_internals = True
-        else:
-            self.no_internals = False
-
         self.cfg['key_reps'] = []
         all_logits = self.get_all_logits(model)
         for rep_name in self.group.non_trivial_irreps.keys():
@@ -119,28 +114,59 @@ class Metrics():
                     metrics[f'logit_{rep_name}_rep_trace_similarity'] = sim
                     metrics[f'logit_excluded_loss_{rep_name}_rep'], metrics[f'logit_restricted_loss_{rep_name}_rep'] = self.logit_excluded_and_restricted_loss(all_logits, sim, self.group.irreps[rep_name].logit_trace_tensor_cube)
                 
-                if self.no_internals:
-                    continue
+                if not self.no_internals:
+                    metrics[f'percent_x_embed_{rep_name}_rep'], metrics[f'percent_y_embed_{rep_name}_rep'] = self.percent_total_embed(model, self.group.irreps[rep_name].orth_rep)
+                    metrics[f'percent_unembed_{rep_name}_rep']  = self.percent_unembed(model, self.group.irreps[rep_name].orth_rep)
+                    metrics[f'percent_hidden_{rep_name}_rep'] = self.percent_hidden(model, self.group.irreps[rep_name].hidden_reps_xy_orth)
+                    metrics[f'hidden_excluded_loss_{rep_name}_rep'], metrics[f'hidden_restricted_loss_{rep_name}_rep'] = self.hidden_excluded_and_restricted_loss(model, self.group.irreps[rep_name].hidden_reps_xy_orth)
 
-                metrics[f'percent_x_embed_{rep_name}_rep'], metrics[f'percent_y_embed_{rep_name}_rep'] = self.percent_total_embed(model, self.group.irreps[rep_name].orth_rep)
-                metrics[f'percent_unembed_{rep_name}_rep']  = self.percent_unembed(model, self.group.irreps[rep_name].orth_rep)
-
-                metrics[f'percent_hidden_{rep_name}_rep'] = self.percent_hidden(model, self.group.irreps[rep_name].hidden_reps_xy_orth)
-        
-                metrics[f'embed_excluded_loss_{rep_name}_rep'], metrics[f'embed_restricted_loss_{rep_name}_rep'] = self.embed_excluded_and_restricted_loss(model, self.group.irreps[rep_name].orth_rep)
+                #metrics[f'embed_excluded_loss_{rep_name}_rep'], metrics[f'embed_restricted_loss_{rep_name}_rep'] = self.embed_excluded_and_restricted_loss(model, self.group.irreps[rep_name].orth_rep)
 
             metrics['percent_logits_explained'] = percent_logits_explained
             metrics['total_logit_excluded_loss'], metrics['total_logit_restricted_loss'] = self.total_logit_excluded_and_restricted_loss(all_logits, self.cfg['key_reps'], sims)
             if not self.no_internals:
-                metrics['total_embed_restricted_loss'] = self.total_embed_restricted_loss(model, self.cfg['key_reps'])
-                metrics['total_embed_excluded_loss'] = self.total_embed_excluded_loss(model, self.cfg['key_reps'])
-
-                #TODO: metrics['total_hidden_excluded_loss'], metrics['total_hidden_restricted_loss'] = self.total_hidden_excluded_and_restricted_loss(model, self.cfg['key_reps'])
-
-                metrics['test_loss_restricted_loss_ratio'] = metrics['test_loss']/metrics['total_embed_restricted_loss']
+                metrics['total_hidden_excluded_loss'], metrics['total_hidden_restricted_loss'] = self.total_hidden_excluded_and_restricted_loss(model, self.cfg['key_reps'])
+                metrics['test_loss_restricted_loss_ratio'] = metrics['test_loss']/metrics['total_hidden_restricted_loss']
                 metrics['sum_of_squared_weights'] = self.sum_of_squared_weights(model)
 
+                #metrics['total_embed_restricted_loss'] = self.total_embed_restricted_loss(model, self.cfg['key_reps'])
+                #metrics['total_embed_excluded_loss'] = self.total_embed_excluded_loss(model, self.cfg['key_reps'])
+
         return metrics
+
+
+    def get_hidden(self, model):
+        if model.__class__.__name__ == 'OneLayerMLP':
+            logits, activations = model.run_with_cache(self.all_data, return_cache_object=False)
+            hidden = activations['hidden'] 
+        elif model.__class__.__name__ == 'Transformer':
+            logits, activations = model.run_with_cache(self.all_data)
+            hidden = activations["post", 0, "mlp"][:, -1, :]
+        return hidden
+
+
+    def get_embeds(self, model):
+        if model.__class__.__name__ == 'OneLayerMLP':
+            embeds = model.x_embed, model.y_embed
+        elif model.__class__.__name__ == 'Transformer':
+            embeds = model.embed.W_E[:-1], model.embed.W_E[:-1]
+        return embeds
+
+    def get_unembed(self, model):
+        if model.__class__.__name__ == 'OneLayerMLP':
+            unembed = model.W_U
+        elif model.__class__.__name__ == 'Transformer':
+            unembed = model.blocks[0].mlp.W_out @ model.unembed.W_U
+        return unembed
+
+
+    def hidden_to_logits(self, hidden, model):
+        if model.__class__.__name__ == 'OneLayerMLP':
+            return hidden @ model.W_U
+        elif model.__class__.__name__ == 'Transformer':
+            return hidden @ model.blocks[0].mlp.W_out @ model.unembed.W_U
+        else:
+            raise NotImplementedError
 
     def logit_trace_similarity(self, logits, trace_cube):
         """
@@ -193,17 +219,6 @@ class Metrics():
         excluded_loss = loss_fn(excluded_logits, self.train_labels).item()
         restricted_loss = loss_fn(restricted_logits.reshape(-1, self.group.order), self.all_labels).item()
 
-        # # shuffle the excluded logits over the batch dimension
-        # excluded_logits = excluded_logits.reshape(-1, self.group.order)
-        # excluded_logits = excluded_logits[torch.randperm(excluded_logits.shape[0])]
-        # # add onto the restricted logits
-        # restricted_logits = restricted_logits.reshape(-1, self.group.order)
-        # shuffled_logits = restricted_logits + excluded_logits
-
-
-        # shuffled_loss = loss_fn(shuffled_logits, self.all_labels).item()
-        # print(f"shuffled loss: {shuffled_loss}")
-
         return excluded_loss, restricted_loss
 
     def percent_unembed(self, model, orth_rep):
@@ -218,8 +233,9 @@ class Metrics():
             (float, float): (total percent, standard deviation over matrix elements of orthonomal representation)
 
         """
-        norm_U = model.W_U.pow(2).sum()
-        coefs_U = orth_rep.T @ model.W_U.T
+        W_U = self.get_unembed(model)
+        norm_U = W_U.pow(2).sum()
+        coefs_U = orth_rep.T @ W_U.T
         conts_U = coefs_U.pow(2).sum(-1) / norm_U
         return conts_U.sum()
 
@@ -234,9 +250,7 @@ class Metrics():
         Returns:
             (float, float, float, float): (total percent x, total percent y)
         """
-        embed_dim = model.W_x.shape[1]
-        x_embed = model.x_embed
-        y_embed = model.y_embed
+        x_embed, y_embed = self.get_embeds(model)
 
         norm_x = x_embed.pow(2).sum()
         norm_y = y_embed.pow(2).sum()
@@ -260,14 +274,52 @@ class Metrics():
         Returns:
             (float, float): (total percent, standard deviation over matrix elements of orthonomal representation)
         """
-        logits, activations = model.run_with_cache(self.all_data, return_cache_object=False)
-        hidden = activations['hidden'] # DONT CENTER - activations['hidden'].mean(0, keepdim=True) # center
+        hidden = self.get_hidden(model)
+
         hidden_norm = hidden.pow(2).sum()
 
         coefs_xy = hidden_reps_xy_orth.T @ hidden
         xy_conts = coefs_xy.pow(2).sum(-1) / hidden_norm
 
         return xy_conts.sum()
+
+    def hidden_excluded_and_restricted_loss(self, model, hidden_reps_xy_orth):
+        hidden = self.get_hidden(model)
+        
+        coefs_xy = hidden_reps_xy_orth.T @ hidden
+        hidden_xy = hidden_reps_xy_orth @ coefs_xy
+
+        hidden_xy_restricted = hidden_xy
+        hidden_xy_excluded = hidden - hidden_xy
+
+        logits_restricted = self.hidden_to_logits(hidden_xy_restricted, model)
+        logits_excluded = self.hidden_to_logits(hidden_xy_excluded, model)
+
+        restricted_loss = loss_fn(logits_restricted, self.all_labels).item()
+        excluded_loss = loss_fn(logits_excluded[self.train_indices], self.train_labels).item()
+
+        return excluded_loss, restricted_loss
+
+    
+    def total_hidden_excluded_and_restricted_loss(self, model, key_reps):
+
+        hidden = self.get_hidden(model)
+
+        hidden_restricted = torch.zeros_like(hidden)
+        for rep_name in key_reps:
+            coefs_xy = self.group.irreps[rep_name].hidden_reps_xy_orth.T @ hidden
+            hidden_xy = self.group.irreps[rep_name].hidden_reps_xy_orth @ coefs_xy
+            hidden_restricted += hidden_xy
+
+        hidden_excluded = hidden - hidden_restricted
+
+        logits_restricted = self.hidden_to_logits(hidden_restricted, model)
+        logits_excluded = self.hidden_to_logits(hidden_excluded, model)
+
+        restricted_loss = loss_fn(logits_restricted, self.all_labels).item()
+        excluded_loss = loss_fn(logits_excluded[self.train_indices], self.train_labels).item()
+
+        return excluded_loss, restricted_loss
 
     def loss_all(self, all_logits):
         """
@@ -296,107 +348,6 @@ class Metrics():
         
         return hidden
 
-
-    def embed_excluded_and_restricted_loss(self, model, orth_rep):
-        """
-        Compute the loss having ablated one of the representations.
-
-        Args:
-            orth_rep (torch.tensor): orthonormal representation
-
-        Returns:
-            float: loss on entire group with one representation ablated
-        """
-        # TODO: make this not architecture specific
-
-        x_embed = model.x_embed
-        y_embed = model.y_embed
-
-        coefs_x = orth_rep.T @ x_embed
-        coefs_y = orth_rep.T @ y_embed
-
-        x_embed_cont = orth_rep @ coefs_x
-        y_embed_cont = orth_rep @ coefs_y
-
-        x_embed_excluded = x_embed - x_embed_cont
-        y_embed_excluded = y_embed - y_embed_cont
-
-        hidden_excluded = self.compute_hidden_from_embeds(x_embed_excluded, y_embed_excluded, model)
-        hidden_restricted = self.compute_hidden_from_embeds(x_embed_cont, y_embed_cont, model)
-    
-        excluded_logits = hidden_excluded @ model.W_U 
-        restricted_logits = hidden_restricted @ model.W_U
-
-        excluded_loss = loss_fn(excluded_logits, self.all_labels).item()
-        restricted_loss = loss_fn(restricted_logits, self.all_labels).item()
-
-        return excluded_loss, restricted_loss
-    
-    def total_embed_restricted_loss(self, model, key_reps):
-        """
-        Compute the loss having restricted to only the representations the network learns.
-
-        Args:
-            key_reps (list): list of names of representations to restrict to
-
-        Returns:
-            float: loss on entire group restricting only to the key representations
-        """
-        # TODO: make this not architecture specific
-
-
-        x_embed = model.x_embed
-        y_embed = model.y_embed
-        
-        x_embed_restricted = torch.zeros_like(x_embed)
-        y_embed_restricted = torch.zeros_like(y_embed)
-
-        for key_rep in key_reps:
-            orth_rep = self.group.irreps[key_rep].orth_rep
-
-            coefs_x = orth_rep.T @ x_embed
-            coefs_y = orth_rep.T @ y_embed
-
-            x_embed_cont = orth_rep @ coefs_x
-            y_embed_cont = orth_rep @ coefs_y
-
-            x_embed_restricted += x_embed_cont
-            y_embed_restricted += y_embed_cont
-
-        hidden = self.compute_hidden_from_embeds(x_embed_restricted, y_embed_restricted, model)
-
-        logits = hidden @ model.W_U
-
-        loss = loss_fn(logits, self.all_labels).item()
-        
-        return loss
-
-    def total_embed_excluded_loss(self, model, key_reps):
-
-        x_embed = model.x_embed
-        y_embed = model.y_embed
-        
-        x_embed_excluded = x_embed
-        y_embed_excluded = y_embed
-
-        for key_rep in key_reps:
-            orth_rep = self.group.irreps[key_rep].orth_rep
-
-            coefs_x = orth_rep.T @ x_embed
-            coefs_y = orth_rep.T @ y_embed
-
-            x_embed_cont = orth_rep @ coefs_x
-            y_embed_cont = orth_rep @ coefs_y
-
-            x_embed_excluded -= x_embed_cont
-            y_embed_excluded -= y_embed_cont
-
-        hidden = self.compute_hidden_from_embeds(x_embed_excluded, y_embed_excluded, model)
-        logits = hidden @ model.W_U
-
-        loss = loss_fn(logits, self.all_labels).item()
-        return loss
-
     def sum_of_squared_weights(self, model):
         """
         Compute the sum of squared weights on the whole model.
@@ -409,13 +360,20 @@ class Metrics():
         """
 
         sum_of_square_weights = 0
-        sum_of_square_weights += torch.sum(model.W_x**2)
-        sum_of_square_weights += torch.sum(model.W_y**2)
-        sum_of_square_weights += torch.sum(model.W_U**2)
 
-        # hacky
-        if hasattr(model, 'W'):
-            sum_of_square_weights += torch.sum(model.W**2)
+        if model.__class__.__name__ == "OneLayerMLP":
+            sum_of_square_weights += torch.sum(model.W_x**2)
+            sum_of_square_weights += torch.sum(model.W_y**2)
+            sum_of_square_weights += torch.sum(model.W_U**2)
+            # hacky
+            if hasattr(model, 'W'):
+                sum_of_square_weights += torch.sum(model.W**2)
+
+        elif model.__class__.__name__ == "Transformer":
+            for name, param in model.named_parameters():
+                if 'weight' in name:
+                    sum_of_square_weights += torch.sum(param**2)
+
 
         return sum_of_square_weights
 
@@ -458,3 +416,102 @@ class Metrics():
 
 
 
+    # def embed_excluded_and_restricted_loss(self, model, orth_rep):
+    #     """
+    #     Compute the loss having ablated one of the representations.
+
+    #     Args:
+    #         orth_rep (torch.tensor): orthonormal representation
+
+    #     Returns:
+    #         float: loss on entire group with one representation ablated
+    #     """
+    #     # TODO: make this not architecture specific
+
+    #     x_embed = model.x_embed
+    #     y_embed = model.y_embed
+
+    #     coefs_x = orth_rep.T @ x_embed
+    #     coefs_y = orth_rep.T @ y_embed
+
+    #     x_embed_cont = orth_rep @ coefs_x
+    #     y_embed_cont = orth_rep @ coefs_y
+
+    #     x_embed_excluded = x_embed - x_embed_cont
+    #     y_embed_excluded = y_embed - y_embed_cont
+
+    #     hidden_excluded = self.compute_hidden_from_embeds(x_embed_excluded, y_embed_excluded, model)
+    #     hidden_restricted = self.compute_hidden_from_embeds(x_embed_cont, y_embed_cont, model)
+    
+    #     excluded_logits = hidden_excluded @ model.W_U 
+    #     restricted_logits = hidden_restricted @ model.W_U
+
+    #     excluded_loss = loss_fn(excluded_logits, self.all_labels).item()
+    #     restricted_loss = loss_fn(restricted_logits, self.all_labels).item()
+
+    #     return excluded_loss, restricted_loss
+    
+    # def total_embed_restricted_loss(self, model, key_reps):
+    #     """
+    #     Compute the loss having restricted to only the representations the network learns.
+
+    #     Args:
+    #         key_reps (list): list of names of representations to restrict to
+
+    #     Returns:
+    #         float: loss on entire group restricting only to the key representations
+    #     """
+    #     # TODO: make this not architecture specific
+
+
+    #     x_embed = model.x_embed
+    #     y_embed = model.y_embed
+        
+    #     x_embed_restricted = torch.zeros_like(x_embed)
+    #     y_embed_restricted = torch.zeros_like(y_embed)
+
+    #     for key_rep in key_reps:
+    #         orth_rep = self.group.irreps[key_rep].orth_rep
+
+    #         coefs_x = orth_rep.T @ x_embed
+    #         coefs_y = orth_rep.T @ y_embed
+
+    #         x_embed_cont = orth_rep @ coefs_x
+    #         y_embed_cont = orth_rep @ coefs_y
+
+    #         x_embed_restricted += x_embed_cont
+    #         y_embed_restricted += y_embed_cont
+
+    #     hidden = self.compute_hidden_from_embeds(x_embed_restricted, y_embed_restricted, model)
+
+    #     logits = hidden @ model.W_U
+
+    #     loss = loss_fn(logits, self.all_labels).item()
+        
+    #     return loss
+
+    # def total_embed_excluded_loss(self, model, key_reps):
+
+    #     x_embed = model.x_embed
+    #     y_embed = model.y_embed
+        
+    #     x_embed_excluded = x_embed
+    #     y_embed_excluded = y_embed
+
+    #     for key_rep in key_reps:
+    #         orth_rep = self.group.irreps[key_rep].orth_rep
+
+    #         coefs_x = orth_rep.T @ x_embed
+    #         coefs_y = orth_rep.T @ y_embed
+
+    #         x_embed_cont = orth_rep @ coefs_x
+    #         y_embed_cont = orth_rep @ coefs_y
+
+    #         x_embed_excluded -= x_embed_cont
+    #         y_embed_excluded -= y_embed_cont
+
+    #     hidden = self.compute_hidden_from_embeds(x_embed_excluded, y_embed_excluded, model)
+    #     logits = hidden @ model.W_U
+
+    #     loss = loss_fn(logits, self.all_labels).item()
+    #     return loss

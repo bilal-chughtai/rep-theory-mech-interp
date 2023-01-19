@@ -7,5 +7,5 @@ freq_48
 sign
 freq_11
 freq_32
-freq_58
 freq_40
+freq_58

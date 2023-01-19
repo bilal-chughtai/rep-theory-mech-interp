@@ -6,6 +6,6 @@ freq_17
 freq_15
 freq_23
 sign
-freq_27
 freq_14
+freq_27
 freq_30

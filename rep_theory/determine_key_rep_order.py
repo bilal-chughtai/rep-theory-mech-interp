@@ -28,6 +28,24 @@ with open(os.path.join(task_dir, 'key_reps.txt'), 'r') as f:
     key_reps = f.readlines()
     key_reps = [key_rep.strip() for key_rep in key_reps]
 
+# if blank, get logit similarity from summary metrics
+if len(key_reps) == 0:
+    key_reps = []
+    # read in irreps from irreps.txt
+    with open(os.path.join(task_dir, 'irreps.txt'), 'r') as f:
+        irreps = f.readlines()
+        irreps = [irrep.strip() for irrep in irreps]
+        non_trivial_irreps = [irrep for irrep in irreps if irrep != 'trivial']
+    # loop over irreps
+    for irrep in non_trivial_irreps:
+        logit_sim = df[f'logit_{irrep}_rep_trace_similarity'].iloc[-1]
+        if logit_sim > 0.05:
+            key_reps.append(irrep)
+            
+
+            
+
+
 # Use logit similarity to determine which order the key reps were learnt in
 key_reps_in_order = []
 # loop over row in dataframe

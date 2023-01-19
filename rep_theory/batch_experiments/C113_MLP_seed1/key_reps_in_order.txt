@@ -5,9 +5,9 @@ freq_16
 freq_17
 freq_34
 freq_4
-freq_22
 freq_11
+freq_22
 freq_1
-freq_13
 freq_8
+freq_13
 freq_25

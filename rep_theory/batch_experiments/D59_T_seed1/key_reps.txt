@@ -1,10 +1,4 @@
 sign
+freq_2
 freq_5
 freq_21
-freq_28
-freq_17
-freq_22
-freq_10
-freq_2
-freq_25
-freq_4

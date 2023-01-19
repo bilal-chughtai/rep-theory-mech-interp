@@ -6,6 +6,6 @@ freq_2
 freq_25
 sign
 freq_28
-freq_18
 freq_4
+freq_18
 freq_30

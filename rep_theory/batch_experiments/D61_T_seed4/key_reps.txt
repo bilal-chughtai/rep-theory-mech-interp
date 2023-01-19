@@ -1,6 +1,3 @@
+freq_2
 freq_6
 freq_13
-freq_2
-freq_24
-freq_19
-freq_21

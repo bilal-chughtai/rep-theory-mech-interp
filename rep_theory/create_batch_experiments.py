@@ -105,7 +105,6 @@ cfg = {
     "group": "SymmetricGroup",
     "group_parameter": 6,
     "frac_train" : 0.25, # min needed to generalise on wd = 1
-    "epochs": 100000
 }
 
 cfgs.append(cfg)
@@ -116,7 +115,7 @@ cfg = {
     "group": "SymmetricGroup",
     "group_parameter": 6,
     "frac_train" : 0.4, 
-    "epochs": 50000,
+    "num_epochs": 20000,
 }
 
 cfgs.append(cfg)
@@ -127,7 +126,6 @@ cfg = {
     "group": "SymmetricGroup",
     "group_parameter": 6,
     "frac_train" : 0.3, # probably could be decreased
-    "epochs": 50000,
 }
 
 #cfgs.append(cfg)
@@ -208,6 +206,7 @@ cfg = {
     "group": "DihedralGroup",
     "group_parameter": 59,
     "frac_train" : 0.3,
+    "num_epochs": 100000,
 }
 
 cfgs.append(cfg)
@@ -238,6 +237,7 @@ cfg = {
     "group": "DihedralGroup",
     "group_parameter": 61,
     "frac_train" : 0.3,
+    "num_epochs": 100000,
 }
 
 cfgs.append(cfg)

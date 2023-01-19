@@ -110,6 +110,6 @@ with open(os.path.join(task_dir, 'irreps.txt'), 'w') as f:
 
 # add the key_reps to a file for later use
 with open(os.path.join(task_dir, 'key_reps.txt'), 'w') as f:
-    for irrep in metrics.key_reps:
+    for irrep in metrics.cfg['key_reps']:
         f.write(f'{irrep}\n')
             

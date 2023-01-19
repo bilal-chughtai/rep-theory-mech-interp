@@ -1,5 +1,5 @@
 sign
+standard
 standard_sign
 s6_5d_a
 s6_5d_b
-standard
