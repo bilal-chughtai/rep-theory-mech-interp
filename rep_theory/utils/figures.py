@@ -27,7 +27,7 @@ def get_history_local(keys, run):
 
 def lines_from_keys(metrics, keys, yaxis, labels, save, title=None, **kwargs):
     data = get_history_local(keys, metrics)
-    lines(data[:-1], xaxis="epoch", yaxis=yaxis, labels=labels, show=False, save=save, x=data[-1], title=title, **kwargs)
+    lines(data[:-1], xaxis="epoch", yaxis=yaxis, labels=labels, show=True, save=save, x=data[-1], title=title, **kwargs)
 
 def lines_from_template(metrics, template, fill_with, yaxis, save, other_keys=[], title=None, **kwargs):
     keys = other_keys.copy()

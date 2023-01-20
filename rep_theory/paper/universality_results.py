@@ -46,7 +46,11 @@ base_keys = {
     #'test_acc',
     'total_hidden_excluded_loss': 'Excluded Loss',
     'total_hidden_restricted_loss': 'Restricted Loss',
-    'percent_logits_explained': 'Logit FVE'
+    'percent_logits_explained': 'Logit FVE',
+    'percent_x_embed_explained': 'W_a FVE',
+    'percent_y_embed_explained': 'W_b FVE',
+    'percent_unembed_explained': 'W_U FVE',
+    'percent_hidden_explained': 'MLP FVE',
 }
     
     # create templates for key_rep dependent summary statistics

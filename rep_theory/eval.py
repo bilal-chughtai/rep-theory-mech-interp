@@ -15,9 +15,11 @@ from tqdm import tqdm
 # command line arguments
 parser = argparse.ArgumentParser()
 parser.add_argument('--task_dir', type=str, default='experiments/1L_MLP_sym_S5')
+parser.add_argument('--final', default=False, action='store_true')
 
 args = parser.parse_args()
 task_dir = args.task_dir
+final = args.final
 checkpoint_dir = os.path.join(task_dir, 'checkpoints')
 
 if torch.cuda.is_available:
@@ -68,6 +70,9 @@ for key in metric.keys():
 # Save the metrics to a json
 with open(os.path.join(task_dir, 'summary_metrics.json'), 'w') as f:
     json.dump(metric, f)
+
+if final:
+    sys.exit()
 
 # Create a dataframe to store the metrics
 df = pd.DataFrame()

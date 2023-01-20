@@ -1,4 +1,0 @@
-S6_T_seed1
-S6_T_seed2
-S6_T_seed3
-S6_T_seed4

@@ -43,7 +43,11 @@ class Metrics():
 
         if track_metrics:
             for rep_name in self.group.irreps.keys():
-                self.group.irreps[rep_name].hidden_reps_xy = self.group.irreps[rep_name].rep[self.all_labels].reshape(self.group.order*self.group.order, -1)
+                self.group.irreps[rep_name].hidden_reps_x = self.group.irreps[rep_name].rep[self.all_data[:, 0]].reshape(self.group.order**2, -1)
+                self.group.irreps[rep_name].hidden_reps_y = self.group.irreps[rep_name].rep[self.all_data[:, 1]].reshape(self.group.order**2, -1)
+                self.group.irreps[rep_name].hidden_reps_xy = self.group.irreps[rep_name].rep[self.all_labels].reshape(self.group.order**2, -1)
+                self.group.irreps[rep_name].hidden_reps_x_orth = torch.linalg.qr(self.group.irreps[rep_name].hidden_reps_x)[0]
+                self.group.irreps[rep_name].hidden_reps_y_orth = torch.linalg.qr(self.group.irreps[rep_name].hidden_reps_y)[0]
                 self.group.irreps[rep_name].hidden_reps_xy_orth = torch.linalg.qr(self.group.irreps[rep_name].hidden_reps_xy)[0]
 
     
@@ -103,9 +107,15 @@ class Metrics():
             all_logits = self.get_all_logits(model)
             metrics['all_loss'] = self.loss_all(all_logits)
 
-            # reps
+            # totals
             percent_logits_explained = 0
+            percent_hidden_explained = 0
+            percent_x_embed_explained = 0
+            percent_y_embed_explained = 0
+            percent_unembed_explained = 0
             sims={}
+
+            # all reps
             for rep_name in self.group.irreps.keys():
                 if rep_name != 'trivial':
                     sim = self.logit_trace_similarity(all_logits, self.group.irreps[rep_name].logit_trace_tensor_cube)
@@ -117,11 +127,10 @@ class Metrics():
                 if not self.no_internals:
                     metrics[f'percent_x_embed_{rep_name}_rep'], metrics[f'percent_y_embed_{rep_name}_rep'] = self.percent_total_embed(model, self.group.irreps[rep_name].orth_rep)
                     metrics[f'percent_unembed_{rep_name}_rep']  = self.percent_unembed(model, self.group.irreps[rep_name].orth_rep)
-                    metrics[f'percent_hidden_{rep_name}_rep'] = self.percent_hidden(model, self.group.irreps[rep_name].hidden_reps_xy_orth)
+                    metrics[f'percent_hidden_x_{rep_name}_rep'], metrics[f'percent_hidden_y_{rep_name}_rep'], metrics[f'percent_hidden_xy_{rep_name}_rep'], metrics[f'total_percent_hidden_{rep_name}_rep']= self.percent_hidden(model, rep_name)
                     metrics[f'hidden_excluded_loss_{rep_name}_rep'], metrics[f'hidden_restricted_loss_{rep_name}_rep'] = self.hidden_excluded_and_restricted_loss(model, self.group.irreps[rep_name].hidden_reps_xy_orth)
 
-                #metrics[f'embed_excluded_loss_{rep_name}_rep'], metrics[f'embed_restricted_loss_{rep_name}_rep'] = self.embed_excluded_and_restricted_loss(model, self.group.irreps[rep_name].orth_rep)
-
+            # total 
             metrics['percent_logits_explained'] = percent_logits_explained
             metrics['total_logit_excluded_loss'], metrics['total_logit_restricted_loss'] = self.total_logit_excluded_and_restricted_loss(all_logits, self.cfg['key_reps'], sims)
             if not self.no_internals:
@@ -129,8 +138,18 @@ class Metrics():
                 metrics['test_loss_restricted_loss_ratio'] = metrics['test_loss']/metrics['total_hidden_restricted_loss']
                 metrics['sum_of_squared_weights'] = self.sum_of_squared_weights(model)
 
-                #metrics['total_embed_restricted_loss'] = self.total_embed_restricted_loss(model, self.cfg['key_reps'])
-                #metrics['total_embed_excluded_loss'] = self.total_embed_excluded_loss(model, self.cfg['key_reps'])
+            # key reps
+            for rep_name in self.cfg['key_reps']:
+                percent_hidden_explained += metrics[f'total_percent_hidden_{rep_name}_rep']
+                percent_x_embed_explained += metrics[f'percent_x_embed_{rep_name}_rep']
+                percent_y_embed_explained += metrics[f'percent_y_embed_{rep_name}_rep']
+                percent_unembed_explained += metrics[f'percent_unembed_{rep_name}_rep']
+
+            metrics['percent_hidden_explained'] = percent_hidden_explained
+            metrics['percent_x_embed_explained'] = percent_x_embed_explained
+            metrics['percent_y_embed_explained'] = percent_y_embed_explained
+            metrics['percent_unembed_explained'] = percent_unembed_explained
+            
 
         return metrics
 
@@ -263,7 +282,7 @@ class Metrics():
 
         return conts_x.sum(), conts_y.sum()
         
-    def percent_hidden(self, model, hidden_reps_xy_orth):
+    def percent_hidden(self, model, rep_name):
         """
         Compute the percent of the total hidden representation represented by the representation matrices \rho(xy).
 
@@ -275,13 +294,22 @@ class Metrics():
             (float, float): (total percent, standard deviation over matrix elements of orthonomal representation)
         """
         hidden = self.get_hidden(model)
+        hidden = hidden - hidden.mean(dim=0, keepdim=True)
 
         hidden_norm = hidden.pow(2).sum()
 
+        hidden_reps_x_orth = self.group.irreps[rep_name].hidden_reps_x_orth
+        hidden_reps_y_orth = self.group.irreps[rep_name].hidden_reps_y_orth
+        hidden_reps_xy_orth = self.group.irreps[rep_name].hidden_reps_xy_orth
+        coefs_x = hidden_reps_x_orth.T @ hidden
+        coefs_y = hidden_reps_y_orth.T @ hidden
         coefs_xy = hidden_reps_xy_orth.T @ hidden
-        xy_conts = coefs_xy.pow(2).sum(-1) / hidden_norm
+        x_conts = coefs_x.pow(2).sum() / hidden_norm
+        y_conts = coefs_y.pow(2).sum() / hidden_norm
+        xy_conts = coefs_xy.pow(2).sum() / hidden_norm
+        total_conts = x_conts + y_conts + xy_conts
 
-        return xy_conts.sum()
+        return x_conts, y_conts, xy_conts, total_conts
 
     def hidden_excluded_and_restricted_loss(self, model, hidden_reps_xy_orth):
         hidden = self.get_hidden(model)
