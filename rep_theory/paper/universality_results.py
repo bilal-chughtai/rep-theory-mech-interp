@@ -5,6 +5,7 @@ import numpy as np
 import os
 import sys
 import json
+import csv
 
 batch_run_dir = '../batch_experiments'
 summary_statistics = pd.DataFrame()
@@ -86,10 +87,13 @@ for run in runs:
             key_reps = f.readlines()
         key_reps = [irrep.strip() for irrep in key_reps]
 
-        key_reps_no_freq = [irrep.replace('freq_', '') for irrep in key_reps]
+        key_reps_clean = [irrep.replace('freq_', '') for irrep in key_reps]
+        key_reps_clean = [irrep.replace('a5_', '') for irrep in key_reps_clean]
+        key_reps_clean = [irrep.replace('s5_', '') for irrep in key_reps_clean]
+        key_reps_clean = [irrep.replace('s6_', '') for irrep in key_reps_clean]
 
         # add the key_reps to the dataframe
-        row['Key Irreps'] = ', '.join(key_reps_no_freq)
+        row['Key Irreps'] = ', '.join(key_reps_clean)
 
         # add the key_rep dependent summary statistics to the dataframe
         for template in templates:
@@ -106,6 +110,5 @@ for run in runs:
         print('failed to parse {}'.format(run))
         print(e)
         continue
-# save the dataframe to a csv
-summary_statistics.to_csv('universality_results.csv')
-
+# save the dataframe to a csv, without the quotes around the strings
+summary_statistics.to_csv('universality_results.csv', index=False)
