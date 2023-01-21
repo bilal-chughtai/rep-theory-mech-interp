@@ -25,14 +25,20 @@ def get_history_local(keys, run):
     out.append(run['epoch'].values)
     return out
 
-def lines_from_keys(metrics, keys, yaxis, labels, save, title=None, **kwargs):
+def lines_from_keys(metrics, keys, yaxis, labels, save, title=None, trim=None, vlines=None, **kwargs):
     data = get_history_local(keys, metrics)
-    lines(data[:-1], xaxis="epoch", yaxis=yaxis, labels=labels, show=True, save=save, x=data[-1], title=title, **kwargs)
+    if trim is not None:
+        # find where data[-1] > trim
+        for i, epoch in enumerate(data[-1]):
+            if epoch > trim:
+                break
+        data = [d[:i] for d in data]
+    lines(data[:-1], xaxis="epoch", yaxis=yaxis, labels=labels, show=True, save=save, x=data[-1], title=title, vlines=vlines, **kwargs)
 
-def lines_from_template(metrics, template, fill_with, yaxis, save, other_keys=[], title=None, **kwargs):
+def lines_from_template(metrics, template, fill_with, yaxis, save, other_keys=[], title=None, vlines=None, **kwargs):
     keys = other_keys.copy()
     labels = other_keys.copy()
     for irrep in fill_with:
         keys.append(template.format(irrep))
         labels.append(irrep)
-    lines_from_keys(metrics, keys, yaxis, labels, save, title=title, **kwargs)  
+    lines_from_keys(metrics, keys, yaxis, labels, save, title=title, vlines=vlines, **kwargs)  

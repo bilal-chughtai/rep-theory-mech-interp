@@ -114,7 +114,7 @@ def line(x, y=None, hover=None, xaxis='', yaxis='', log_y=False, save=False, **k
 def scatter(x, y, **kwargs):
     px.scatter(x=to_numpy(x, flat=True), y=to_numpy(y, flat=True), **kwargs).show()
 
-def lines(lines_list, x=None, mode='lines', labels=None, xaxis='', yaxis='', title = '', log_x=False, log_y=False, hover=None, save=False, show=True, legend_pos=None, **kwargs):
+def lines(lines_list, x=None, mode='lines', labels=None, xaxis='', yaxis='', title = '', log_x=False, log_y=False, hover=None, save=False, show=True, legend_pos=None, vlines=None, **kwargs):
     # Helper function to plot multiple lines
     if type(lines_list)==torch.Tensor:
         lines_list = [lines_list[i] for i in range(lines_list.shape[0])]
@@ -141,11 +141,15 @@ def lines(lines_list, x=None, mode='lines', labels=None, xaxis='', yaxis='', tit
         fig.update_layout(yaxis_type="log")
     if log_x:
         fig.update_layout(xaxis_type="log")
+    if vlines:
+        for vline in vlines:
+            fig.add_vline(x=vline, line_width=1, line_dash="dash", line_color="black")
     if show:
         fig.show()
     if save:
         print('Saving to', save)
         fig.write_image(save)
+    
 
 def animate_lines(lines_list, snapshot_index = None, snapshot='snapshot', hover=None, xaxis='x', yaxis='y', **kwargs):
     if type(lines_list)==list:
