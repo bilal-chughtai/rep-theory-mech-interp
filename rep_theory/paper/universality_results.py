@@ -35,7 +35,7 @@ def sci_notation(x):
 
 def percent_notation(x):
     # convert a number to a percentage
-    return '{:.2f}'.format(x*100) + '%'
+    return '{:.2f}'.format(x*100) + '\%'
 
 
 # list of metrics to always get
@@ -48,9 +48,9 @@ base_keys = {
     'total_hidden_excluded_loss': 'Excluded Loss',
     'total_hidden_restricted_loss': 'Restricted Loss',
     'percent_logits_explained': 'Logit FVE',
-    'percent_x_embed_explained': 'W_a FVE',
-    'percent_y_embed_explained': 'W_b FVE',
-    'percent_unembed_explained': 'W_U FVE',
+    'percent_x_embed_explained': '$W_a$ FVE',
+    'percent_y_embed_explained': '$W_b$ FVE',
+    'percent_unembed_explained': '$W_U$ FVE',
     'percent_hidden_explained': 'MLP FVE',
 }
     
@@ -92,6 +92,9 @@ for run in runs:
         key_reps_clean = [irrep.replace('s5_', '') for irrep in key_reps_clean]
         key_reps_clean = [irrep.replace('s6_', '') for irrep in key_reps_clean]
 
+        # replace any underscores with a dash
+        key_reps_clean = [irrep.replace('_', '-') for irrep in key_reps_clean]
+
         # add the key_reps to the dataframe
         row['Key Irreps'] = ', '.join(key_reps_clean)
 
@@ -110,5 +113,95 @@ for run in runs:
         print('failed to parse {}'.format(run))
         print(e)
         continue
-# save the dataframe to a csv, without the quotes around the strings
-summary_statistics.to_csv('universality_results.csv', index=False)
+
+
+
+# split the Seed out of the run name, following the last underscore
+summary_statistics['Seed'] = summary_statistics['run'].str.split('_').str[-1]
+# sort by Seed
+summary_statistics = summary_statistics.sort_values(by=['run', 'Seed'])
+# remove the Seed from the Seed
+summary_statistics['Seed'] = summary_statistics['Seed'].str.replace('Seed', '')
+
+# split the dataframe into two dataframes, one for MLP and one for Transformer architectures
+mlp = summary_statistics[summary_statistics['run'].str.contains('MLP')].copy()
+transformer = summary_statistics[summary_statistics['run'].str.contains('T')].copy()
+
+# extract the text before the first underscore
+mlp['Group'] = mlp['run'].str.split('_').str[0]
+transformer['Group'] = transformer['run'].str.split('_').str[0]
+
+# turn this into latex by adding an underscore between the letter and number
+mlp['Group'] = mlp['Group'].str.replace('C', 'C_')
+mlp['Group'] = mlp['Group'].str.replace('D', 'D_')
+mlp['Group'] = mlp['Group'].str.replace('S', 'S_')
+mlp['Group'] = mlp['Group'].str.replace('A', 'A_')
+transformer['Group'] = transformer['Group'].str.replace('C', 'C_')
+transformer['Group'] = transformer['Group'].str.replace('D', 'D_')
+transformer['Group'] = transformer['Group'].str.replace('S', 'S_')
+transformer['Group'] = transformer['Group'].str.replace('A', 'A_')
+
+# surround the number with curly braces
+mlp['Group'] = mlp['Group'].str.replace('C_', 'C_{')
+mlp['Group'] = mlp['Group'].str.replace('D_', 'D_{')
+mlp['Group'] = mlp['Group'].str.replace('S_', 'S_{')
+mlp['Group'] = mlp['Group'].str.replace('A_', 'A_{')
+transformer['Group'] = transformer['Group'].str.replace('C_', 'C_{')
+transformer['Group'] = transformer['Group'].str.replace('D_', 'D_{')
+transformer['Group'] = transformer['Group'].str.replace('S_', 'S_{')
+transformer['Group'] = transformer['Group'].str.replace('A_', 'A_{')
+
+# add a closing curly brace
+mlp['Group'] = mlp['Group'] + '}'
+transformer['Group'] = transformer['Group'] + '}'
+
+
+
+# add a dollar sign to the start and end of the Group name
+mlp['Group'] = '$' + mlp['Group'] + '$'
+transformer['Group'] = '$' + transformer['Group'] + '$'
+
+#split each dataframe into four dataframes, one for 'C', 'D', 'S' and 'A' runs
+mlp_c = mlp[mlp['run'].str.contains('C')]
+mlp_d = mlp[mlp['run'].str.contains('D')]
+mlp_s = mlp[mlp['run'].str.contains('S')]
+mlp_a = mlp[mlp['run'].str.contains('A')]
+transformer_c = transformer[transformer['run'].str.contains('C')]
+transformer_d = transformer[transformer['run'].str.contains('D')]
+transformer_s = transformer[transformer['run'].str.contains('S')]
+transformer_a = transformer[transformer['run'].str.contains('A')]
+
+# put them back together in that order
+mlp = pd.concat([mlp_c, mlp_d, mlp_s, mlp_a])
+transformer = pd.concat([transformer_c, transformer_d, transformer_s, transformer_a])
+
+# remove the run column
+mlp = mlp.drop(columns=['run'])
+transformer = transformer.drop(columns=['run'])
+
+#drop the "W_b FVE" column from transformer
+transformer = transformer.drop(columns=['$W_b$ FVE'])
+#rename the "W_a FVE" column to "W_E FVE"
+transformer = transformer.rename(columns={'$W_a$ FVE': '$W_E$ FVE'})
+
+# move the Group and Seed columns to the front
+mlp = mlp[['Group', 'Seed'] + [col for col in mlp.columns if col not in ['Group', 'Seed']]]
+transformer = transformer[['Group', 'Seed'] + [col for col in transformer.columns if col not in ['Group', 'Seed']]]
+
+# save each dataframe to a csv file
+mlp.to_csv('universality_results/mlp.csv', index=False)
+transformer.to_csv('universality_results/transformer.csv', index=False)
+
+# surround the "Key Irreps" column values with "\text{}" to prevent latex from interpreting them as math
+#mlp['Key Irreps'] = mlp['Key Irreps'].apply(lambda x: '\\text{{{}}}'.format(x))
+#transformer['Key Irreps'] = transformer['Key Irreps'].apply(lambda x: '\\text{{{}}}'.format(x))
+
+
+pd.set_option('display.max_colwidth', None)
+# save each dataframe to a latex file
+mlp.to_latex('universality_results/mlp.tex', index=False, escape=False, column_format = 'c'*len(mlp.columns))
+transformer.to_latex('universality_results/transformer.tex', index=False, escape=False, column_format='c'*len(transformer.columns) )
+
+
+
+
