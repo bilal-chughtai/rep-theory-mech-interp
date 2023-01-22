@@ -110,6 +110,7 @@ class Metrics():
             # totals
             percent_logits_explained = 0
             percent_hidden_explained = 0
+            percent_hidden_xy_explained = 0
             percent_x_embed_explained = 0
             percent_y_embed_explained = 0
             percent_unembed_explained = 0
@@ -141,15 +142,16 @@ class Metrics():
             # key reps
             for rep_name in self.cfg['key_reps']:
                 percent_hidden_explained += metrics[f'total_percent_hidden_{rep_name}_rep']
+                percent_hidden_xy_explained += metrics[f'percent_hidden_xy_{rep_name}_rep']
                 percent_x_embed_explained += metrics[f'percent_x_embed_{rep_name}_rep']
                 percent_y_embed_explained += metrics[f'percent_y_embed_{rep_name}_rep']
                 percent_unembed_explained += metrics[f'percent_unembed_{rep_name}_rep']
 
             metrics['percent_hidden_explained'] = percent_hidden_explained
+            metrics['percent_hidden_xy_explained'] = percent_hidden_xy_explained
             metrics['percent_x_embed_explained'] = percent_x_embed_explained
             metrics['percent_y_embed_explained'] = percent_y_embed_explained
-            metrics['percent_unembed_explained'] = percent_unembed_explained
-            
+            metrics['percent_unembed_explained'] = percent_unembed_explained        
 
         return metrics
 
