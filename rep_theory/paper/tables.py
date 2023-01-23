@@ -10,7 +10,7 @@ import csv
 batch_run_dir = '../batch_experiments'
 summary_statistics = pd.DataFrame()
 
-#num_seeds = 4
+num_seeds = 4
 #get a list of directories, but not files, in the batch_run_dir
 runs = []
 for f in os.listdir(batch_run_dir):
@@ -182,27 +182,23 @@ transformer_avg = transformer.copy()
 mlp_avg = mlp_avg.drop(columns=['Key Irreps', 'Logit FVE'])
 transformer_avg = transformer_avg.drop(columns=['Key Irreps', 'Logit FVE'])
 # get the mean of all columns grouped by Group
-mlp_avg_features = mlp_avg.groupby('Group')[["$W_a$ FVE", "$W_b$ FVE", "$W_U$ FVE"]].mean()
-mlp_avg_circuit = mlp_avg.groupby('Group')[['MLP FVE', 'MLP $\\rho(ab)$ FVE', 'Exc. Loss', 'Res. Loss']].mean()
-transformer_avg_features = transformer_avg.groupby('Group')[["$W_E$ FVE", "$W_U$ FVE"]].mean()
-transformer_avg_circuit = transformer_avg.groupby('Group')[['MLP FVE', 'MLP $\\rho(ab)$ FVE', 'Exc. Loss', 'Res. Loss']].mean()
+mlp_avg = mlp_avg.groupby('Group')[["$W_a$ FVE", "$W_b$ FVE", "$W_U$ FVE", 'MLP FVE', 'MLP $\\rho(ab)$ FVE', 'Test Loss', 'Exc. Loss', 'Res. Loss']].mean()
+transformer_avg = transformer_avg.groupby('Group')[["$W_E$ FVE", "$W_U$ FVE", 'MLP FVE', 'MLP $\\rho(ab)$ FVE', 'Test Loss', 'Exc. Loss', 'Res. Loss']].mean()
 
 #reset the index so that the Group column is a column again
-mlp_avg_features = mlp_avg_features.reset_index()
-mlp_avg_circuit = mlp_avg_circuit.reset_index()
-transformer_avg_features = transformer_avg_features.reset_index()
-transformer_avg_circuit = transformer_avg_circuit.reset_index()
+mlp_avg = mlp_avg.reset_index()
+transformer_avg = transformer_avg.reset_index()
 
 pd.set_option('display.max_colwidth', None)
 # convert any column containing FVE to a percentage, convert any column containing Loss to scientific notation
-dfs = [mlp, transformer, mlp_avg_features, mlp_avg_circuit, transformer_avg_features, transformer_avg_circuit]
+dfs = [mlp, transformer, mlp_avg, transformer_avg]
 for df in dfs:
     for col in df.columns:
         if 'FVE' in col:
             df[col] = df[col].apply(lambda x: '{:.2%}'.format(x))
             # escape the % sign
             df[col] = df[col].apply(lambda x: x.replace('%', '\%'))
-        if 'Res. Loss' in col:
+        if 'Res. Loss' in col or 'Test Loss' in col:
             # if loss is between 0.01 and 100 then don't use scientific notation
             df[col] = df[col].apply(lambda x: '{:.2e}'.format(x))
         if 'Exc. Loss' in col:
@@ -224,12 +220,10 @@ for df in dfs:
 
 
 # save each dataframe to a latex file 
-mlp.to_latex('universality_results/mlp.tex', index=False, escape=False, column_format = 'c'*len(mlp.columns))
-transformer.to_latex('universality_results/transformer.tex', index=False, escape=False, column_format='c'*len(transformer.columns) )
-mlp_avg_features.to_latex('universality_results/mlp_avg_features.tex', index=False, escape=False, column_format = 'c'*len(mlp_avg_features.columns))
-mlp_avg_circuit.to_latex('universality_results/mlp_avg_circuit.tex', index=False, escape=False, column_format = 'c'*len(mlp_avg_circuit.columns))
-transformer_avg_features.to_latex('universality_results/transformer_avg_features.tex', index=False, escape=False, column_format = 'c'*len(transformer_avg_features.columns))
-transformer_avg_circuit.to_latex('universality_results/transformer_avg_circuit.tex', index=False, escape=False, column_format = 'c'*len(transformer_avg_circuit.columns))
+mlp.to_latex('universality_results/mlp_all.tex', index=False, escape=False, column_format = 'c'*len(mlp.columns))
+transformer.to_latex('universality_results/transformer_all.tex', index=False, escape=False, column_format='c'*len(transformer.columns) )
+mlp_avg.to_latex('universality_results/mlp_avg.tex', index=False, escape=False, column_format = 'c'*len(mlp_avg.columns))
+transformer_avg.to_latex('universality_results/transformer_avg.tex', index=False, escape=False, column_format = 'c'*len(transformer_avg.columns))
 
 
 

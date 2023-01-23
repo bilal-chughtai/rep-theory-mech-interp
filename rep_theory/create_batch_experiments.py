@@ -289,8 +289,8 @@ for cfg in cfgs:
     create_on_seeds(base_cfg, cfg, [1, 2, 3, 4]
 )
 
-# create the first cfg on the seeds 5 through 20
-create_on_seeds(base_cfg, cfgs[0], range(5, 21))
+# create the first cfg on the seeds 5 through 50
+create_on_seeds(base_cfg, cfgs[0], range(5, 51))
 
 # add a file in the parent directory that contains the names of all the experiments
 with open(os.path.join(parent_directory, 'unran_experiments.txt'), 'a') as f:
