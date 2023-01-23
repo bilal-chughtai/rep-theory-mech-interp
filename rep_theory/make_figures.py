@@ -100,7 +100,7 @@ template = "percent_unembed_{}_rep"
 lines_from_template(metrics, template, reps_to_plot, yaxis="fraction of variance", save=f"{save_dir}/percent_unembed.png", legend_pos='tl')
 
 # figure: evolution of \rho(a), \rho(b), \rho(ab)
-template = "percent_hidden_{}_rep"
+template = "percent_hidden_xy_{}_rep"
 lines_from_template(metrics, template, reps_to_plot, yaxis="fraction of variance", save=f"{save_dir}/percent_hidden_ab.png", legend_pos='tr')
 
 

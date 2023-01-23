@@ -10,6 +10,7 @@ import csv
 batch_run_dir = '../batch_experiments'
 summary_statistics = pd.DataFrame()
 
+#num_seeds = 4
 #get a list of directories, but not files, in the batch_run_dir
 runs = []
 for f in os.listdir(batch_run_dir):
@@ -17,7 +18,10 @@ for f in os.listdir(batch_run_dir):
     if os.path.isdir(d):
         # check if the directory has a "summary_metrics.json" file
         if os.path.isfile(os.path.join(d, 'summary_metrics.json')):
-            runs.append(f)
+            # make sure the seed, which is in f and of form seedx has x<=num_seeds
+            seed = int(f.split('seed')[-1])
+            if seed <= num_seeds:
+                runs.append(f)
 
 
 # list of metrics to always get

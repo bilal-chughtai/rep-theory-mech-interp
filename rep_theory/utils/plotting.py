@@ -19,6 +19,13 @@ def get_legend_dict(legend_pos):
             xanchor="left",
             x=0.01
         )
+    elif legend_pos=='tlm':
+        return dict(
+            yanchor="top",
+            y=0.99,
+            xanchor="left",
+            x=0.05
+        )
     elif legend_pos=='tr':
         return dict(
             yanchor="top",
@@ -37,6 +44,13 @@ def get_legend_dict(legend_pos):
         return dict(
             yanchor="bottom",
             y=0.01,
+            xanchor="right",
+            x=0.99
+        )
+    elif legend_pos=='mr':
+        return dict(
+            yanchor="middle",
+            y=0.5,
             xanchor="right",
             x=0.99
         )
