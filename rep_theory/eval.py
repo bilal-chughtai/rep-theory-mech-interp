@@ -22,10 +22,15 @@ task_dir = args.task_dir
 final = args.final
 checkpoint_dir = os.path.join(task_dir, 'checkpoints')
 
+         
+
 if torch.cuda.is_available:
     print('CUDA available!')
 else:
     print('CUDA not available!')
+
+# clear cuda memory
+torch.cuda.empty_cache()
 
 print(f'Evaluating {task_dir}')
 
@@ -117,4 +122,5 @@ with open(os.path.join(task_dir, 'irreps.txt'), 'w') as f:
 with open(os.path.join(task_dir, 'key_reps.txt'), 'w') as f:
     for irrep in metrics.cfg['key_reps']:
         f.write(f'{irrep}\n')
-            
+
+

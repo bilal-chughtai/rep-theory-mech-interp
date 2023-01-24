@@ -23,9 +23,9 @@ if torch.cuda.is_available:
 else:
   print('CUDA not available!')
 
-track_metrics = False
+track_metrics = True
 
-task_dir = "experiments/C113_T_seed1"
+task_dir = "experiments/long_run"
 
 print(f'Training {task_dir}')
 
@@ -61,8 +61,8 @@ test_accs = []
 print('Initializing model...')
 model = architecture_type(layers, group.order, seed)
 model.cuda()
-metrics = Metrics(group, True, track_metrics, train_data, train_labels, test_data, test_labels, shuffled_indices)
-optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
+metrics = Metrics(group, True, track_metrics, train_data, train_labels, test_data, test_labels, shuffled_indices, only_x_embed=True)
+optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay, betas=betas)
 #scheduler = transformers.get_cosine_schedule_with_warmup(optimizer, 100, num_epochs)
 
 def cleanup():
@@ -80,9 +80,10 @@ try:
         optimizer.zero_grad()
         train_losses.append(train_loss.item())
         #scheduler.step()
-        with torch.inference_mode():
-            metric = metrics.get_metrics(model, train_logits, train_loss)
-            wandb.log(metric)
+        if epoch % 100 == 0:
+            with torch.inference_mode():
+                metric = metrics.get_metrics(model, train_logits, train_loss)
+                wandb.log(metric)
 
         if epoch%1000 == 0:
             print(f"Epoch:{epoch}, Train: L: {metric['train_loss']:.6f} A: {metric['train_acc']*100:.4f}%, Test: L: {metric['test_loss']:.6f} A: {metric['test_acc']*100:.4f}%")

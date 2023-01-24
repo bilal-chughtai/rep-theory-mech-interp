@@ -59,10 +59,6 @@ D61_T_seed1
 D61_T_seed2
 D61_T_seed3
 D61_T_seed4
-S6_T_seed1
-S6_T_seed2
-S6_T_seed3
-S6_T_seed4
 S5_MLP_seed5
 S5_MLP_seed6
 S5_MLP_seed7
@@ -109,3 +105,12 @@ S5_MLP_seed47
 S5_MLP_seed48
 S5_MLP_seed49
 S5_MLP_seed50
+S6_T_seed1
+S6_T_seed1
+S6_T_seed2
+S6_T_seed1
+S6_T_seed1
+S6_T_seed1
+S6_T_seed2
+S6_T_seed3
+S6_T_seed4

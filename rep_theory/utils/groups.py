@@ -152,7 +152,6 @@ class Group:
         """
         orders = []
         for i in range(1):
-            print(i)
             current = i
             order = 1
             while current != self.identity:
@@ -646,8 +645,6 @@ class AlternatingGroup(Group):
                     self.A_to_S[i] = j
                     break
         
-        print(self.A_to_S)
-
         #create a dict mapping each index of S to its index in A
         self.S_to_A = {}
         for i, s in enumerate(S_elements):

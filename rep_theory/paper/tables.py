@@ -206,16 +206,15 @@ for df in dfs:
             df[col] = df[col].apply(lambda x: '{:.2f}'.format(x))
 
 
-# save each dataframe to a csv file
-# mlp.to_csv('universality_results/mlp.csv', index=False)
-# transformer.to_csv('universality_results/transformer.csv', index=False)
-# mlp_avg_features.to_csv('universality_results/mlp_avg_features.csv', index=False)
-# mlp_avg_circuit.to_csv('universality_results/mlp_avg_circuit.csv', index=False)
-# transformer_avg_features.to_csv('universality_results/transformer_avg_features.csv', index=False)
-# transformer_avg_circuit.to_csv('universality_results/transformer_avg_circuit.csv', index=False)
 
-
-
+# stitch together the transformer and mlp dataframes on the Group column
+# this is the dataframe that will be used for the main body of the paper
+# rename the columns for the transformer dataframe to start with T
+transformer_avg.columns = ['T' + col if col != 'Group' and col != 'Seed' else col for col in transformer_avg.columns]
+# rename the columns for the mlp dataframe to start with M
+mlp_avg.columns = ['M' + col if col != 'Group' and col != 'Seed' else col for col in mlp_avg.columns]
+# merge the two dataframes on the Group column
+merge = pd.merge(mlp_avg, transformer_avg, on='Group')
 
 
 
@@ -224,6 +223,15 @@ mlp.to_latex('universality_results/mlp_all.tex', index=False, escape=False, colu
 transformer.to_latex('universality_results/transformer_all.tex', index=False, escape=False, column_format='c'*len(transformer.columns) )
 mlp_avg.to_latex('universality_results/mlp_avg.tex', index=False, escape=False, column_format = 'c'*len(mlp_avg.columns))
 transformer_avg.to_latex('universality_results/transformer_avg.tex', index=False, escape=False, column_format = 'c'*len(transformer_avg.columns))
+merge.to_latex('universality_results/merge.tex', index=False, escape=False, column_format = 'c'*len(merge.columns))
+
+# save each to a csv too
+mlp.to_csv('universality_results/mlp_all.csv', index=False)
+transformer.to_csv('universality_results/transformer_all.csv', index=False)
+mlp_avg.to_csv('universality_results/mlp_avg.csv', index=False)
+transformer_avg.to_csv('universality_results/transformer_avg.csv', index=False)
+merge.to_csv('universality_results/merge.csv', index=False)
+
 
 
 

@@ -8,7 +8,7 @@ class Metrics():
     """
     A class to track metrics during training and testing.
     """
-    def __init__(self, group, training, track_metrics, train_data = None, train_labels=None, test_data=None, test_labels=None, shuffled_indices=None, cfg={}):
+    def __init__(self, group, training, track_metrics, train_data = None, train_labels=None, test_data=None, test_labels=None, shuffled_indices=None, cfg={}, only_x_embed=True):
         """
         Initialise the metrics class.
 
@@ -33,7 +33,8 @@ class Metrics():
         self.all_labels = all_data[:, 2]
         self.cfg = cfg
         self.shuffled_indices = shuffled_indices
-        self.no_internals = False 
+        self.no_internals = False
+        self.only_x_embed = only_x_embed 
 
         # get the indices of train data in all data
         #values, indices = torch.topk(((self.all_data.t() == self.train_data.unsqueeze(-1)).all(dim=1)).int(), 1, 1)
@@ -102,6 +103,11 @@ class Metrics():
             test_logits = self.get_test_logits(model)
             metrics = self.get_standard_metrics(test_logits, train_logits, train_loss)
 
+        if self.only_x_embed:
+            for rep_name in self.group.irreps.keys():
+                metrics[f'percent_x_embed_{rep_name}_rep'] = self.percent_total_embed(model, self.group.irreps[rep_name].orth_rep)[0]
+            return metrics
+
         if self.track_metrics:
             # losses
             all_logits = self.get_all_logits(model)
@@ -161,8 +167,18 @@ class Metrics():
             logits, activations = model.run_with_cache(self.all_data, return_cache_object=False)
             hidden = activations['hidden'] 
         elif model.__class__.__name__ == 'Transformer':
-            logits, activations = model.run_with_cache(self.all_data)
-            hidden = activations["post", 0, "mlp"][:, -1, :]
+            # if all data is big, split into n sections, and stitch back together
+            if self.all_data.shape[0] <= 15000:
+                logits, activations = model.run_with_cache(self.all_data)
+                hidden = activations["post", 0, "mlp"][:, -1, :]
+            else:
+                shape = self.all_data.shape[0]
+                n = 4
+                hidden = []
+                for i in range(n):
+                    logits, activations = model.run_with_cache(self.all_data[i*shape//n:(i+1)*shape//n])
+                    hidden.append(activations["post", 0, "mlp"][:, -1, :])
+                hidden = torch.cat(hidden, dim=0)
         return hidden
 
 

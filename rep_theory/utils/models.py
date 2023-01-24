@@ -148,8 +148,21 @@ def generate_train_test_data(group, frac_train, seed=False):
 
 def loss_fn(logits, labels):
     #loss = F.cross_entropy(logits, labels)
-    logits = logits.to(torch.float64)
-    log_probs = logits.log_softmax(dim=-1)
-    correct_log_probs = log_probs.gather(dim=-1, index=labels[:, None])[:, 0]
-    return -correct_log_probs.mean()
+    # if logits big, split into many parts to not run out of memory
+    shape = logits.shape[0]
+    if shape > 15000:
+        loss = 0
+        n = 8
+        for i in range(0, shape, shape//n):
+            logits_i = logits[i:i+shape//n]
+            logits_i = logits_i.to(torch.float64)
+            log_probs = logits_i.log_softmax(dim=-1)
+            correct_log_probs = log_probs.gather(dim=-1, index=labels[i:i+shape//n, None])[:, 0]
+            loss += -correct_log_probs.mean()
+        return loss
+    else:
+        logits = logits.to(torch.float64)
+        log_probs = logits.log_softmax(dim=-1)
+        correct_log_probs = log_probs.gather(dim=-1, index=labels[:, None])[:, 0]
+        return -correct_log_probs.mean()
 
