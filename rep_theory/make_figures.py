@@ -52,7 +52,11 @@ else:
 
 # figure: evolution of cosine similarity
 template = "logit_{}_rep_trace_similarity"
-lines_from_template(metrics, template, reps_to_plot, yaxis="cosine similarity", save=f"{save_dir}/logit_similarity.png", log_x=True, legend_pos='tl')
+lines_from_template(metrics, template, reps_to_plot, yaxis="cosine similarity", save=f"{save_dir}/logit_similarity.png", log_x=False, legend_pos='tl')
+
+# figure: losses
+keys = ['train_loss', 'test_loss']
+lines_from_keys(metrics, keys, labels=keys, yaxis='Loss', save=f'{save_dir}/losses.png', log_x=False, log_y = True, legend_pos='bl')
 
 # figure: evolution of cosine similarity
 # template = "other_logit_{}_rep_trace_similarity"

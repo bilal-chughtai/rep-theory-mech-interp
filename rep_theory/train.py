@@ -25,7 +25,7 @@ else:
 
 track_metrics = True
 
-task_dir = "experiments/long_run"
+task_dir = "experiments/squared_run"
 
 print(f'Training {task_dir}')
 

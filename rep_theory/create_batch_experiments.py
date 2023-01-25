@@ -5,6 +5,9 @@ parent_directory = 'batch_experiments'
 
 print(f'Creating experiments in {parent_directory}')
 
+if not os.path.exists(parent_directory):
+    os.mkdir(parent_directory)
+
 acronyms = {
     "OneLayerMLP": "MLP",
     "Transformer": "T",

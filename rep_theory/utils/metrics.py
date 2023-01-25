@@ -78,6 +78,9 @@ class Metrics():
         
 
     def determine_key_reps(self, model):
+        """
+        Determine via logit similarity of a final model which reps are key.
+        """
         self.cfg['key_reps'] = []
         all_logits = self.get_all_logits(model)
         for rep_name in self.group.non_trivial_irreps.keys():
@@ -163,6 +166,9 @@ class Metrics():
 
 
     def get_hidden(self, model):
+        """ 
+        Get the final MLP neuron activations for all data points
+        """
         if model.__class__.__name__ == 'OneLayerMLP':
             logits, activations = model.run_with_cache(self.all_data, return_cache_object=False)
             hidden = activations['hidden'] 
@@ -183,6 +189,9 @@ class Metrics():
 
 
     def get_embeds(self, model):
+        """ 
+        Get the embedding matrices for x and y
+        """
         if model.__class__.__name__ == 'OneLayerMLP':
             embeds = model.x_embed, model.y_embed
         elif model.__class__.__name__ == 'Transformer':
@@ -190,6 +199,9 @@ class Metrics():
         return embeds
 
     def get_unembed(self, model):
+        """ 
+        Get the unembedding matrix
+        """
         if model.__class__.__name__ == 'OneLayerMLP':
             unembed = model.W_U
         elif model.__class__.__name__ == 'Transformer':
@@ -198,6 +210,9 @@ class Metrics():
 
 
     def hidden_to_logits(self, hidden, model):
+        """ 
+        Convert hidden activations to logits via the correct unembed
+        """
         if model.__class__.__name__ == 'OneLayerMLP':
             return hidden @ model.W_U
         elif model.__class__.__name__ == 'Transformer':
@@ -223,6 +238,9 @@ class Metrics():
         return sim
 
     def logit_excluded_and_restricted_loss(self, logits, sim, cube):
+        """ 
+        Restrict at the logit level by excluding and restricting to individual characters - this metric is not used in the paper
+        """
         centered_logits = logits - logits.mean(dim=-1, keepdim=True)
         centered_logits = centered_logits.reshape(-1)
         trace = cube.reshape(-1)
@@ -237,6 +255,9 @@ class Metrics():
         return excluded_loss, restricted_loss
 
     def total_logit_excluded_and_restricted_loss(self, logits, key_reps, sims):
+        """ 
+        Restrict at the logit level by excluding and restricting to key characters - this metric is not used in the paper
+        """
         centered_logits = logits - logits.mean(dim=-1, keepdim=True)
         centered_logits = centered_logits.reshape(-1)
         norm_logits = torch.norm(centered_logits)
@@ -330,6 +351,9 @@ class Metrics():
         return x_conts, y_conts, xy_conts, total_conts
 
     def hidden_excluded_and_restricted_loss(self, model, hidden_reps_xy_orth):
+        """ 
+        Restrict or exclude reps rho(ab) from the hidden layer and compute the loss on the restricted and excluded parts of the hidden layer.
+        """
         hidden = self.get_hidden(model)
         
         coefs_xy = hidden_reps_xy_orth.T @ hidden
@@ -348,7 +372,9 @@ class Metrics():
 
     
     def total_hidden_excluded_and_restricted_loss(self, model, key_reps):
-
+        """ 
+        Restrict or exclude all key reps rho(ab) from the hidden layer and compute the loss on the restricted and excluded parts of the hidden layer.
+        """
         hidden = self.get_hidden(model)
 
         hidden_restricted = torch.zeros_like(hidden)
@@ -460,104 +486,3 @@ class Metrics():
         """
         return model(self.test_data)
 
-
-
-    # def embed_excluded_and_restricted_loss(self, model, orth_rep):
-    #     """
-    #     Compute the loss having ablated one of the representations.
-
-    #     Args:
-    #         orth_rep (torch.tensor): orthonormal representation
-
-    #     Returns:
-    #         float: loss on entire group with one representation ablated
-    #     """
-    #     # TODO: make this not architecture specific
-
-    #     x_embed = model.x_embed
-    #     y_embed = model.y_embed
-
-    #     coefs_x = orth_rep.T @ x_embed
-    #     coefs_y = orth_rep.T @ y_embed
-
-    #     x_embed_cont = orth_rep @ coefs_x
-    #     y_embed_cont = orth_rep @ coefs_y
-
-    #     x_embed_excluded = x_embed - x_embed_cont
-    #     y_embed_excluded = y_embed - y_embed_cont
-
-    #     hidden_excluded = self.compute_hidden_from_embeds(x_embed_excluded, y_embed_excluded, model)
-    #     hidden_restricted = self.compute_hidden_from_embeds(x_embed_cont, y_embed_cont, model)
-    
-    #     excluded_logits = hidden_excluded @ model.W_U 
-    #     restricted_logits = hidden_restricted @ model.W_U
-
-    #     excluded_loss = loss_fn(excluded_logits, self.all_labels).item()
-    #     restricted_loss = loss_fn(restricted_logits, self.all_labels).item()
-
-    #     return excluded_loss, restricted_loss
-    
-    # def total_embed_restricted_loss(self, model, key_reps):
-    #     """
-    #     Compute the loss having restricted to only the representations the network learns.
-
-    #     Args:
-    #         key_reps (list): list of names of representations to restrict to
-
-    #     Returns:
-    #         float: loss on entire group restricting only to the key representations
-    #     """
-    #     # TODO: make this not architecture specific
-
-
-    #     x_embed = model.x_embed
-    #     y_embed = model.y_embed
-        
-    #     x_embed_restricted = torch.zeros_like(x_embed)
-    #     y_embed_restricted = torch.zeros_like(y_embed)
-
-    #     for key_rep in key_reps:
-    #         orth_rep = self.group.irreps[key_rep].orth_rep
-
-    #         coefs_x = orth_rep.T @ x_embed
-    #         coefs_y = orth_rep.T @ y_embed
-
-    #         x_embed_cont = orth_rep @ coefs_x
-    #         y_embed_cont = orth_rep @ coefs_y
-
-    #         x_embed_restricted += x_embed_cont
-    #         y_embed_restricted += y_embed_cont
-
-    #     hidden = self.compute_hidden_from_embeds(x_embed_restricted, y_embed_restricted, model)
-
-    #     logits = hidden @ model.W_U
-
-    #     loss = loss_fn(logits, self.all_labels).item()
-        
-    #     return loss
-
-    # def total_embed_excluded_loss(self, model, key_reps):
-
-    #     x_embed = model.x_embed
-    #     y_embed = model.y_embed
-        
-    #     x_embed_excluded = x_embed
-    #     y_embed_excluded = y_embed
-
-    #     for key_rep in key_reps:
-    #         orth_rep = self.group.irreps[key_rep].orth_rep
-
-    #         coefs_x = orth_rep.T @ x_embed
-    #         coefs_y = orth_rep.T @ y_embed
-
-    #         x_embed_cont = orth_rep @ coefs_x
-    #         y_embed_cont = orth_rep @ coefs_y
-
-    #         x_embed_excluded -= x_embed_cont
-    #         y_embed_excluded -= y_embed_cont
-
-    #     hidden = self.compute_hidden_from_embeds(x_embed_excluded, y_embed_excluded, model)
-    #     logits = hidden @ model.W_U
-
-    #     loss = loss_fn(logits, self.all_labels).item()
-    #     return loss

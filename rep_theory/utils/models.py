@@ -52,6 +52,10 @@ class BilinearNet(HookedRootModule):
         return out
 
 class OneLayerMLP(HookedRootModule):
+    """ 
+    A one layer MLP. W_x and W_y are embedding layers, whose outputs are concatenated and fed into a hidden layer. The result is unembedded by W_U.
+    Main model used in paper
+    """
     def __init__(self, layers, n, seed=0):
         # embed_dim: dimension of the embedding
         # hidden : hidden dimension size
@@ -134,6 +138,9 @@ class Transformer(HookedTransformer):
 
 
 def generate_train_test_data(group, frac_train, seed=False):
+    """
+    Generate train and test data from a group's all data.
+    """
     data, shuffled_indices = group.get_all_data(seed)
     train_size = int(frac_train*data.shape[0])
     train = data[:train_size]
