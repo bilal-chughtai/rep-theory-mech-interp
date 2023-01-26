@@ -96,6 +96,54 @@ class OneLayerMLP(HookedRootModule):
 
         return out
 
+class OneLayerMLPwithBias(HookedRootModule):
+    """ 
+    A one layer MLP. W_x and W_y are embedding layers, whose outputs are concatenated and fed into a hidden layer. The result is unembedded by W_U.
+    Main model used in paper
+    """
+    def __init__(self, layers, n, seed=0):
+        # embed_dim: dimension of the embedding
+        # hidden : hidden dimension size
+        # n : group order
+        super().__init__()
+        torch.manual_seed(seed)
+
+        self.embed_dim = layers['embed_dim']
+        hidden = layers['hidden_dim']
+
+        # xavier initialise parameters
+        self.W_x = nn.Parameter(torch.randn(n, self.embed_dim)/np.sqrt(self.embed_dim))
+        self.W_y = nn.Parameter(torch.randn(n, self.embed_dim)/np.sqrt(self.embed_dim))
+        self.W = nn.Parameter(torch.randn(2*self.embed_dim, hidden)/np.sqrt(2*self.embed_dim))
+        self.relu = nn.ReLU()
+        self.W_U = nn.Parameter(torch.randn(hidden, n)/np.sqrt(hidden))
+
+        # add a bias term on the hidden layer
+        self.b = nn.Parameter(torch.zeros(hidden))
+
+        # hookpoints
+        self.embed_stack = HookPoint()
+        self.hidden = HookPoint()
+
+        # We need to call the setup function of HookedRootModule to build an 
+        # internal dictionary of modules and hooks, and to give each hook a name
+        super().setup()
+
+    def forward(self, data):
+        x = data[:, 0] # (batch)
+        half_x_embed = self.W_x[x] # (batch, embed_dim)
+        y = data[:, 1] # (batch)
+        half_y_embed = self.W_y[y] # (batch, embed_dim)
+        embed_stack = self.embed_stack(torch.hstack((half_x_embed, half_y_embed))) # (batch, 2*embed_dim)
+        hidden = self.hidden(self.relu(embed_stack @ self.W)) # (batch, hidden)
+        hidden = hidden + self.b 
+        out = hidden @ self.W_U # (batch, n)
+
+        # for metrics
+        self.x_embed = self.W_x @ self.W[:self.embed_dim, :]
+        self.y_embed = self.W_y @ self.W[self.embed_dim:, :]
+
+        return out
 
 class Transformer(HookedTransformer):
     # Hacky subclass of TransformerLens' Transformer to tokenize input data correctly.

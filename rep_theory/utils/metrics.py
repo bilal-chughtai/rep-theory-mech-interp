@@ -8,7 +8,7 @@ class Metrics():
     """
     A class to track metrics during training and testing.
     """
-    def __init__(self, group, training, track_metrics, train_data = None, train_labels=None, test_data=None, test_labels=None, shuffled_indices=None, cfg={}, only_x_embed=True):
+    def __init__(self, group, training, track_metrics, train_data = None, train_labels=None, test_data=None, test_labels=None, shuffled_indices=None, cfg={}, only_x_embed=False):
         """
         Initialise the metrics class.
 
@@ -169,7 +169,7 @@ class Metrics():
         """ 
         Get the final MLP neuron activations for all data points
         """
-        if model.__class__.__name__ == 'OneLayerMLP':
+        if 'OneLayerMLP' in model.__class__.__name__ :
             logits, activations = model.run_with_cache(self.all_data, return_cache_object=False)
             hidden = activations['hidden'] 
         elif model.__class__.__name__ == 'Transformer':
@@ -192,7 +192,7 @@ class Metrics():
         """ 
         Get the embedding matrices for x and y
         """
-        if model.__class__.__name__ == 'OneLayerMLP':
+        if 'OneLayerMLP' in model.__class__.__name__:
             embeds = model.x_embed, model.y_embed
         elif model.__class__.__name__ == 'Transformer':
             embeds = model.embed.W_E[:-1], model.embed.W_E[:-1]
@@ -202,7 +202,7 @@ class Metrics():
         """ 
         Get the unembedding matrix
         """
-        if model.__class__.__name__ == 'OneLayerMLP':
+        if 'OneLayerMLP' in model.__class__.__name__:
             unembed = model.W_U
         elif model.__class__.__name__ == 'Transformer':
             unembed = model.blocks[0].mlp.W_out @ model.unembed.W_U
@@ -213,7 +213,7 @@ class Metrics():
         """ 
         Convert hidden activations to logits via the correct unembed
         """
-        if model.__class__.__name__ == 'OneLayerMLP':
+        if 'OneLayerMLP' in model.__class__.__name__:
             return hidden @ model.W_U
         elif model.__class__.__name__ == 'Transformer':
             return hidden @ model.blocks[0].mlp.W_out @ model.unembed.W_U

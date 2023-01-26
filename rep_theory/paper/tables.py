@@ -108,7 +108,7 @@ summary_statistics['Seed'] = summary_statistics['run'].str.split('_').str[-1]
 # sort by Seed
 summary_statistics = summary_statistics.sort_values(by=['run', 'Seed'])
 # remove the Seed from the Seed
-summary_statistics['Seed'] = summary_statistics['Seed'].str.replace('Seed', '')
+summary_statistics['Seed'] = summary_statistics['Seed'].str.replace('seed', '')
 
 # split the dataframe into two dataframes, one for MLP and one for Transformer architectures
 mlp = summary_statistics[summary_statistics['run'].str.contains('MLP')].copy()
@@ -171,9 +171,9 @@ transformer = transformer.drop(columns=['$W_b$ FVE'])
 #rename the "W_a FVE" column to "W_E FVE"
 transformer = transformer.rename(columns={'$W_a$ FVE': '$W_E$ FVE'})
 
-# move the Group and Seed columns to the front
-mlp = mlp[['Group', 'Seed'] + [col for col in mlp.columns if col not in ['Group', 'Seed']]]
-transformer = transformer[['Group', 'Seed'] + [col for col in transformer.columns if col not in ['Group', 'Seed']]]
+# move the Group, Seed, and Kep Irreps columns to the front
+mlp = mlp[['Group', 'Seed', 'Key Irreps'] + [col for col in mlp.columns if col not in ['Group', 'Seed', 'Key Irreps']]]
+transformer = transformer[['Group', 'Seed', 'Key Irreps'] + [col for col in transformer.columns if col not in ['Group', 'Seed', 'Key Irreps']]]
 
 # get summary statistics for main body
 mlp_avg = mlp.copy()
