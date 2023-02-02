@@ -35,9 +35,8 @@ def lines_from_keys(metrics, keys, yaxis, labels, save, title=None, trim=None, v
         data = [d[:i] for d in data]
     lines(data[:-1], xaxis="epoch", yaxis=yaxis, labels=labels, show=True, save=save, x=data[-1], title=title, vlines=vlines, **kwargs)
 
-def lines_from_template(metrics, template, fill_with, yaxis, save, other_keys=[], title=None, vlines=None, **kwargs):
+def lines_from_template(metrics, template, fill_with, labels, yaxis, save, other_keys=[], title=None, vlines=None, **kwargs):
     keys = other_keys.copy()
-    labels = other_keys.copy()
     for irrep in fill_with:
         keys.append(template.format(irrep))
         labels.append(irrep)

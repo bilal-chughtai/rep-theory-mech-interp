@@ -50,7 +50,7 @@ def get_legend_dict(legend_pos):
     elif legend_pos=='mr':
         return dict(
             yanchor="middle",
-            y=0.5,
+            y=0.6,
             xanchor="right",
             x=0.99
         )
