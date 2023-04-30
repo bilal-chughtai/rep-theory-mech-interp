@@ -21,7 +21,9 @@ for f in os.listdir(batch_run_dir):
             # make sure the seed, which is in f and of form seedx has x<=num_seeds
             seed = int(f.split('seed')[-1])
             if seed <= num_seeds:
-                runs.append(f)
+                # make sure its not a width experiment
+                if 'hidden' not in f:
+                    runs.append(f)
 
 
 # list of metrics to always get
@@ -59,6 +61,11 @@ for run in runs:
         summary_metrics = os.path.join(batch_run_dir, run, 'summary_metrics.json')
         # read the json file
         run_metrics = json.load(open(summary_metrics, 'r'))
+        # read the cfg file
+        # cfg = os.path.join(batch_run_dir, run, 'cfg.json')
+        # cfg = json.load(open(cfg, 'r'))
+        # # add the layers['hidden'] to the row
+        # row['Hidden'] = cfg['layers']['hidden_dim']
 
         # add the base keys to the dataframe
         for key in base_keys:

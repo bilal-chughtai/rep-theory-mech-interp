@@ -1,0 +1,1 @@
+{"lr": 0.001, "weight_decay": 1, "betas": [0.9, 0.98], "layers": {"embed_dim": 64, "hidden_dim": 32}, "extra_name": "_hidden_dim_32", "model": "OneLayerMLP", "group": "SymmetricGroup", "group_parameter": 5, "frac_train": 0.4, "num_epochs": 1000000, "seed": 8}

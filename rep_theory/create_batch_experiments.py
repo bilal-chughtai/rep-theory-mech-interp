@@ -21,10 +21,10 @@ acronyms = {
 experiments = []
 already_created = []
 
-def create_experiment(cfg):
+def create_experiment(cfg, extra_name=""):
 
     # Define what the directory for this experiment would be
-    experiment_name = f'{acronyms[cfg["group"]]}{cfg["group_parameter"]}_{acronyms[cfg["model"]]}_seed{cfg["seed"]}'
+    experiment_name = f'{acronyms[cfg["group"]]}{cfg["group_parameter"]}_{acronyms[cfg["model"]]}{cfg["extra_name"]}_seed{cfg["seed"]}'
     experiment_directory = os.path.join(parent_directory, experiment_name)
 
     # Check if the experiment directory exists
@@ -66,6 +66,7 @@ base_cfg = {
         "embed_dim": 256,
         "hidden_dim": 128
     },
+    "extra_name": ""
 }
 
 cfgs = []
@@ -286,11 +287,37 @@ cfg = {
 
 #cfgs.append(cfg)
 
+cfgs_rebuttal = []
+
+# S5, OneLayerMLP, various seeds, various widths
+
+hidden_dims = [32, 48, 64, 80, 96, 112]
+for hidden_dim in hidden_dims:
+    cfg = {
+        "model": "OneLayerMLP",
+        "group": "SymmetricGroup",
+        "group_parameter": 5,
+        "frac_train" : 0.4, # min needed to generalise on wd = 1
+        "layers": {
+            "embed_dim": hidden_dim * 2,
+            "hidden_dim": hidden_dim
+        },
+        "extra_name": f"_hidden_dim_{hidden_dim}",
+        # scale such that embed_dim = 256 is baseline, and more if embed_dim small
+        "num_epochs": 250000 * (128 // hidden_dim)
+    }
+    cfgs_rebuttal.append(cfg)
+
 
 
 for cfg in cfgs:
-    create_on_seeds(base_cfg, cfg, [1, 2, 3, 4]
-)
+    create_on_seeds(base_cfg, cfg, [1, 2, 3, 4])
+
+for cfg in cfgs_rebuttal:
+    create_on_seeds(base_cfg, cfg, [1,2,3,4])
+
+for cfg in cfgs_rebuttal[:1]:
+    create_on_seeds(base_cfg, cfg, range(5, 11))
 
 # create the first cfg on the seeds 5 through 50
 create_on_seeds(base_cfg, cfgs[0], range(5, 51))
