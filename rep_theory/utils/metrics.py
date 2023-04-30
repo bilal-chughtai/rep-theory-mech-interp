@@ -193,7 +193,7 @@ class Metrics():
         Get the embedding matrices for x and y
         """
         if 'OneLayerMLP' in model.__class__.__name__:
-            embeds = model.x_embed, model.y_embed
+            embeds = model.W_x @ self.W[:model.embed_dim, :], model.W_y @ model.W[model.embed_dim:, :]
         elif model.__class__.__name__ == 'Transformer':
             embeds = model.embed.W_E[:-1], model.embed.W_E[:-1]
         return embeds

@@ -6,7 +6,7 @@ def load_cfg(task_dir):
     cfg_file = open(f"{task_dir}/cfg.json")
     cfg = json.load(cfg_file)
 
-    seed = cfg['seed'] # TODO: don't set seed to 0, or generating train test data gets broken (not shuffled) - fix this
+    seed = cfg['seed']
     frac_train = cfg['frac_train']
     layers = cfg['layers']
     lr = cfg['lr']

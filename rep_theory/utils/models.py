@@ -89,11 +89,6 @@ class OneLayerMLP(HookedRootModule):
         embed_stack = self.embed_stack(torch.hstack((half_x_embed, half_y_embed))) # (batch, 2*embed_dim)
         hidden = self.hidden(self.relu(embed_stack @ self.W)) # (batch, hidden)
         out = hidden @ self.W_U # (batch, n)
-
-        # for metrics
-        self.x_embed = self.W_x @ self.W[:self.embed_dim, :]
-        self.y_embed = self.W_y @ self.W[self.embed_dim:, :]
-
         return out
 
 class OneLayerMLPwithBias(HookedRootModule):

@@ -78,7 +78,7 @@ class Group:
 
         
     
-    def get_all_data(self, shuffle_seed=False):
+    def get_all_data(self, shuffle_seed=None):
         """
         Get's all data and labels for the pairwise composition task.
 

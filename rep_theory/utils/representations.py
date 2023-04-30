@@ -10,7 +10,7 @@ class Representation():
 
     def __init__(self, compute_rep_params, index, order, multiplication_table, inverses, all_data, group_acronym, irrep=True):
         """
-        Initialise the symmetric group representation.
+        Initialise the group representation.
 
         Args:
             compute_rep_params (tuple): representation specific parameters required for computing the representation
