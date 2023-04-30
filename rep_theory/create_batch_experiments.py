@@ -322,21 +322,23 @@ for cfg in cfgs_rebuttal[:1]:
 # create the first cfg on the seeds 5 through 50
 create_on_seeds(base_cfg, cfgs[0], range(5, 51))
 
-# add a file in the parent directory that contains the names of all the experiments
-with open(os.path.join(parent_directory, 'unran_experiments.txt'), 'a') as f:
+# add a file in the parent directory that contains the names of all the new experiments, that have not yet been run
+with open(os.path.join(parent_directory, 'experiments_to_run.txt'), 'a') as f:
     for experiment in experiments:
         f.write(experiment + '\n')
         print(f'Created {experiment}')
 
 # add a file in the parent directory that contains the names of all ran experiments
-with open(os.path.join(parent_directory, 'ran_experiments.txt'), 'a') as f:
+with open(os.path.join(parent_directory, 'experiments_to_eval.txt'), 'a') as f:
     pass
 
 # add a file in the parent directory that contains the names of all evaled experiments
 with open(os.path.join(parent_directory, 'evaled_experiments.txt'), 'a') as f:
     pass
 
-# add a file in the parent directory that contains the names of already created experiments
-with open(os.path.join(parent_directory, 'created_experiments.txt'), 'a') as f:
+# add a file in the parent directory that contains the names of all experiments
+with open(os.path.join(parent_directory, 'all_experiments.txt'), 'w') as f:
     for experiment in already_created:
+        f.write(experiment + '\n')
+    for experiment in experiments:
         f.write(experiment + '\n')

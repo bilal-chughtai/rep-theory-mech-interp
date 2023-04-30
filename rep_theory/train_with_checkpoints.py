@@ -1,3 +1,4 @@
+# imports
 import sys
 import torch
 from tqdm import tqdm
@@ -14,19 +15,16 @@ import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument('--task_dir', type=str, default='experiments/1L_MLP_sym_S5')
 parser.add_argument('--num_checkpoints', type=int, default=1000)
-
-
+parser.add_argument('--track_metrics', type=bool, default=False) # whether to track metrics during training, or eval after training
 args = parser.parse_args()
-
-
 task_dir = args.task_dir
 num_checkpoints = args.num_checkpoints
-# if no checkpoint dir, make it
+track_metrics = args.track_metrics
+
+# if no checkpoint dir in the task_dir, make it
 checkpoint_dir = os.path.join(task_dir, 'checkpoints')
 if not os.path.exists(checkpoint_dir):
     os.makedirs(checkpoint_dir)
-    
-
 
 
 if torch.cuda.is_available:
@@ -34,7 +32,6 @@ if torch.cuda.is_available:
 else:
     print('CUDA not available!')
 
-track_metrics = False
 
 print(f'Training {task_dir}')
 
