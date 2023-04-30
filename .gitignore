@@ -4,7 +4,6 @@ wandb/
 rep_theory/batch_experiments/*/checkpoints
 rep_theory/batch_experiments/*/figures
 rep_theory/batch_experiments_beta2_0999
-rep_theory/batch_experiments/*/*.pt
 rep_theory/utils/cache
 rep_theory/paper/mainline-S5-old
 rep_theory/paper/mainline-S5-also-old
