@@ -8,6 +8,10 @@ Optionally download and unzip a cached file of useful tensors by running `downlo
 
 ## Demo Notebook
 
+<a target="_blank" href="https://colab.research.google.com/github/bilal-chughtai/rep-theory-mech-interp/blob/master/rep_theory/paper/demo.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>
+</a>
+
 We have included a standalone demo notebook, `rep_theory/paper/demo.ipynb`, which demonstrates the main ideas of the paper. This notebook is mostly self-contained, and does not extensively use any other code in the repository. Read this notebook first to get a sense of the main ideas in the paper, and their implementation.
 
 ## Replicating Paper Results
